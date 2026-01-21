@@ -1,0 +1,434 @@
+/* popup.css - Modern, clean UI styling for Grayscale Filter extension */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --active-green: #10b981;
+  --active-green-hover: #059669;
+  --inactive-gray: #6b7280;
+  --inactive-gray-hover: #4b5563;
+  --danger-red: #ef4444;
+  --danger-red-hover: #dc2626;
+  --bg-light: #f9fafb;
+  --bg-white: #ffffff;
+  --border-gray: #e5e7eb;
+  --text-dark: #1f2937;
+  --text-gray: #6b7280;
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+body {
+  width: 350px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  color: var(--text-dark);
+  background: var(--bg-white);
+}
+
+.container {
+  padding: 0;
+}
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px 20px;
+  text-align: center;
+}
+
+.header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Quick Toggle Section */
+.quick-toggle {
+  padding: 20px;
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border-gray);
+}
+
+.current-domain {
+  font-size: 13px;
+  color: var(--text-gray);
+  margin-bottom: 12px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.toggle-btn {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: white;
+}
+
+.toggle-btn.active {
+  background: var(--danger-red);
+}
+
+.toggle-btn.active:hover {
+  background: var(--danger-red-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.toggle-btn.inactive {
+  background: var(--active-green);
+}
+
+.toggle-btn.inactive:hover {
+  background: var(--active-green-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.toggle-btn:disabled {
+  background: var(--inactive-gray);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Manual Add Section */
+.add-section {
+  padding: 20px;
+  background: var(--bg-white);
+  border-bottom: 1px solid var(--border-gray);
+}
+
+.domain-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 2px solid var(--border-gray);
+  border-radius: 6px;
+  margin-bottom: 10px;
+  transition: border-color 0.2s ease;
+}
+
+.domain-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.domain-input::placeholder {
+  color: var(--text-gray);
+}
+
+.add-btn {
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: #667eea;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-btn:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.add-btn:active {
+  transform: translateY(0);
+}
+
+.error-message {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--danger-red);
+  min-height: 16px;
+}
+
+/* Domain List Section */
+.domain-list-section {
+  padding: 20px;
+  background: var(--bg-white);
+}
+
+.domain-list-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 12px;
+}
+
+.domain-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: 6px;
+}
+
+/* Custom scrollbar */
+.domain-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.domain-list::-webkit-scrollbar-track {
+  background: var(--bg-light);
+  border-radius: 4px;
+}
+
+.domain-list::-webkit-scrollbar-thumb {
+  background: var(--border-gray);
+  border-radius: 4px;
+}
+
+.domain-list::-webkit-scrollbar-thumb:hover {
+  background: var(--inactive-gray);
+}
+
+.domain-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-light);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.domain-item:hover {
+  background: var(--border-gray);
+  transform: translateX(2px);
+}
+
+.domain-name {
+  font-size: 14px;
+  color: var(--text-dark);
+  font-weight: 500;
+  flex: 1;
+  word-break: break-all;
+}
+
+.remove-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  background: var(--danger-red);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 10px;
+  flex-shrink: 0;
+}
+
+.remove-btn:hover {
+  background: var(--danger-red-hover);
+  transform: scale(1.05);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 30px 20px;
+  color: var(--text-gray);
+  font-size: 13px;
+  display: none;
+}
+
+.empty-state.visible {
+  display: block;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.domain-item {
+  animation: fadeIn 0.3s ease;
+}
+
+/* ===== TEMPORARY TOGGLE SECTION ===== */
+
+.temp-toggle-section {
+  padding: 20px;
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  border-bottom: 3px solid #ea580c;
+}
+
+.temp-toggle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.temp-toggle-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+.temp-status {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Power Button */
+.temp-toggle-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.power-button {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.power-button:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.power-button.active {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: #10b981;
+  animation: pulse 2s infinite;
+}
+
+.power-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.power-icon {
+  width: 32px;
+  height: 32px;
+  color: white;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Duration Dropdown */
+.duration-selector {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.duration-selector label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.duration-dropdown {
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.duration-dropdown:hover {
+  background: white;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.duration-dropdown:focus {
+  outline: none;
+  border-color: white;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+/* Timer Display */
+.temp-timer {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.timer-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+.timer-display {
+  font-size: 18px;
+  color: white;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+.cancel-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+  background: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn:hover {
+  background: #fee2e2;
+  transform: scale(1.05);
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.8);
+  }
+}
