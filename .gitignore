@@ -14,3 +14,13 @@ Thumbs.db
 # Build artifacts
 dist/
 build/
+.planning/
+
+# Dependencies
+node_modules/
+
+# Test coverage
+coverage/
+
+# npm debug logs
+npm-debug.log*

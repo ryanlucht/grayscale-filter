@@ -1,0 +1,17 @@
+{
+  "name": "grayscale-filter-extension",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Chrome extension for effortless grayscale website control",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPatterns=tests/unit",
+    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPatterns=tests/e2e --runInBand",
+    "test:all": "npm run test && npm run test:e2e",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --testPathPatterns=tests/unit"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "puppeteer": "^24.0.0"
+  }
+}
