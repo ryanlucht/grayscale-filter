@@ -1,6 +1,8 @@
 // Mock Chrome Extension APIs for testing
 // This file runs before each test file
 
+import { jest, beforeEach } from '@jest/globals';
+
 // Create mock chrome object structure
 const chromeMock = {
   storage: {
