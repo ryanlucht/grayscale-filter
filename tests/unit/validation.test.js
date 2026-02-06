@@ -1,5 +1,6 @@
 // tests/unit/validation.test.js
-import { isValidDomain, shouldApplyGrayscaleFilter } from '../helpers/extractors.js';
+import { isValidDomain } from '../../utils/domain.js';
+import { shouldApplyGrayscaleFilter } from '../../utils/filter.js';
 
 describe('isValidDomain', () => {
   describe('valid domains', () => {

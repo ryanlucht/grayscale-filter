@@ -1,5 +1,5 @@
 // tests/unit/domain.test.js
-import { extractDomain, normalizeDomain, formatDuration } from '../helpers/extractors.js';
+import { extractDomain, normalizeDomain, formatDuration } from '../../utils/domain.js';
 
 describe('extractDomain', () => {
   describe('valid HTTP/HTTPS URLs', () => {
