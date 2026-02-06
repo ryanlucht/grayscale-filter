@@ -24,19 +24,23 @@
       <button id="toggleButton" class="btn-primary">
         <span id="toggleText">Add to Grayscale</span>
       </button>
-      <!-- Power button for temporary override -->
-      <div class="override-controls">
-        <button id="powerButton" class="btn-icon" title="Temporary override">
-          <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M12 2v10M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-          </svg>
-        </button>
-        <select id="durationSelect" class="duration-select">
-          <option value="900000">15 min</option>
-          <option value="1800000" selected>30 min</option>
-          <option value="3600000">1 hour</option>
-          <option value="86400000">1 day</option>
-        </select>
+      <!-- Temporary Override Section -->
+      <div class="override-section">
+        <h3 class="override-heading">temporary override</h3>
+        <p class="override-helper">Quickly override grayscale for this site</p>
+        <div class="override-controls">
+          <button id="powerButton" class="btn-icon" title="Temporary override">
+            <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 2v10M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+            </svg>
+          </button>
+          <select id="durationSelect" class="duration-select">
+            <option value="900000">15 min</option>
+            <option value="1800000" selected>30 min</option>
+            <option value="3600000">1 hour</option>
+            <option value="86400000">1 day</option>
+          </select>
+        </div>
       </div>
     </div>
 

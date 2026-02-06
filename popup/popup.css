@@ -21,8 +21,8 @@
   /* Utility colors */
   --active-green: #10b981;
   --active-green-hover: #059669;
-  --danger-red: #ef4444;
-  --danger-red-hover: #dc2626;
+  --danger-red: #C17B7B;
+  --danger-red-hover: #A86B6B;
   --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
@@ -53,8 +53,6 @@ body {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   margin-bottom: 12px;
 }
 
@@ -92,45 +90,70 @@ body {
   text-align: center;
 }
 
-/* ===== OVERRIDE CONTROLS (Power button + duration) ===== */
-.override-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
+/* ===== TEMPORARY OVERRIDE SECTION ===== */
+.override-section {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--border-light);
 }
 
+.override-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.override-helper {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  text-align: center;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.override-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
 .btn-icon {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  border: 2px solid var(--border-light);
-  background: transparent;
+  border: 2px solid var(--accent-sage-light);
+  background: rgba(139, 155, 126, 0.08);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  color: var(--text-secondary);
+  color: var(--accent-sage);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .btn-icon:hover {
   border-color: var(--accent-sage);
-  color: var(--accent-sage);
+  background: rgba(139, 155, 126, 0.15);
+  color: var(--accent-sage-dark);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+  transform: scale(1.05);
 }
 
 .btn-icon.active {
   border-color: var(--accent-sage);
   background: var(--accent-sage-light);
   color: var(--accent-sage-dark);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
 }
 
 .power-icon {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
 }
 
 .duration-select {
