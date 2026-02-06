@@ -1,6 +1,9 @@
 // popup.js - UI logic and Chrome API interactions
+import { extractDomain, normalizeDomain, isValidDomain, formatDuration } from '../utils/domain.js';
 
-// DOM elements
+// ============================================
+// DOM ELEMENT REFERENCES
+// ============================================
 let currentDomainEl;
 let toggleButton;
 let toggleText;
@@ -18,12 +21,18 @@ let durationSelect;
 let cancelOverride;
 let timerDisplay;
 
-// State
+// ============================================
+// STATE VARIABLES
+// ============================================
 let currentDomain = null;
 let domains = [];
 let currentTabId = null;
 let temporaryOverride = null;
 let timerInterval = null;
+
+// ============================================
+// INITIALIZATION
+// ============================================
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
@@ -67,7 +76,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadTemporaryOverride();
   updateUI();
   startTimerUpdate();
+
+  // Clean up timer interval when popup closes
+  window.addEventListener('unload', () => {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  });
 });
+
+// ============================================
+// DATA LOADING
+// ============================================
 
 // Load current tab information
 async function loadCurrentTab() {
@@ -105,6 +126,10 @@ async function loadDomains() {
     domains = [];
   }
 }
+
+// ============================================
+// UI UPDATE FUNCTIONS
+// ============================================
 
 // Update UI based on current state
 function updateUI() {
@@ -174,6 +199,10 @@ function renderDomainList() {
     domainList.appendChild(item);
   });
 }
+
+// ============================================
+// EVENT HANDLERS - Domain Management
+// ============================================
 
 // Handle toggle button click
 async function handleToggle() {
@@ -263,6 +292,10 @@ async function removeDomain(domain) {
   }
 }
 
+// ============================================
+// CHROME API HELPERS
+// ============================================
+
 // Send message to all tabs with matching domain
 async function sendMessageToAllTabs(action, domain) {
   try {
@@ -289,41 +322,6 @@ async function sendMessageToAllTabs(action, domain) {
   }
 }
 
-// Extract domain from URL
-function extractDomain(url) {
-  try {
-    const urlObj = new URL(url);
-
-    // Skip non-http(s) URLs
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      return null;
-    }
-
-    return urlObj.hostname.replace(/^www\./, '').toLowerCase();
-  } catch (error) {
-    return null;
-  }
-}
-
-// Normalize domain input
-function normalizeDomain(input) {
-  // Remove protocol if present
-  input = input.replace(/^(https?:\/\/)?(www\.)?/, '');
-
-  // Remove trailing slash and path
-  input = input.split('/')[0];
-
-  // Convert to lowercase
-  return input.toLowerCase();
-}
-
-// Validate domain format
-function isValidDomain(domain) {
-  // Basic domain validation regex
-  const regex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?(\.[a-zA-Z]{2,})+$/;
-  return regex.test(domain);
-}
-
 // Show error message
 function showError(message) {
   errorMessage.textContent = message;
@@ -332,7 +330,9 @@ function showError(message) {
   }, 3000);
 }
 
-// ===== TEMPORARY OVERRIDE FUNCTIONS =====
+// ============================================
+// TEMPORARY OVERRIDE FUNCTIONS
+// ============================================
 
 // Load temporary override status for current domain
 async function loadTemporaryOverride() {
@@ -490,13 +490,4 @@ function showSuccessMessage(state, durationMs) {
     errorMessage.textContent = '';
     errorMessage.style.color = '';
   }, 3000);
-}
-
-// Format duration for display
-function formatDuration(ms) {
-  const minutes = ms / 60000;
-  if (minutes < 60) return `${minutes} minutes`;
-  const hours = minutes / 60;
-  if (hours < 24) return hours === 1 ? '1 hour' : `${hours} hours`;
-  return '1 day';
 }
