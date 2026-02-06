@@ -41,7 +41,7 @@ body {
 
 /* Header */
 .header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent-sage);
   color: white;
   padding: 16px 20px;
   text-align: center;
@@ -56,13 +56,13 @@ body {
 /* Quick Toggle Section */
 .quick-toggle {
   padding: 20px;
-  background: var(--bg-light);
-  border-bottom: 1px solid var(--border-gray);
+  background: var(--bg-cream);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .current-domain {
-  font-size: 13px;
-  color: var(--text-gray);
+  font-size: 14px;
+  color: var(--text-secondary);
   margin-bottom: 12px;
   text-align: center;
   font-weight: 500;
@@ -109,15 +109,15 @@ body {
 /* Manual Add Section */
 .add-section {
   padding: 20px;
-  background: var(--bg-white);
-  border-bottom: 1px solid var(--border-gray);
+  background: var(--bg-cream);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .domain-input {
   width: 100%;
   padding: 10px 12px;
   font-size: 14px;
-  border: 2px solid var(--border-gray);
+  border: 2px solid var(--border-light);
   border-radius: 6px;
   margin-bottom: 10px;
   transition: border-color 0.2s ease;
@@ -125,20 +125,20 @@ body {
 
 .domain-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--accent-sage);
 }
 
 .domain-input::placeholder {
-  color: var(--text-gray);
+  color: var(--text-secondary);
 }
 
 .add-btn {
   width: 100%;
   padding: 10px 16px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: white;
-  background: #667eea;
+  background: var(--accent-sage);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -146,9 +146,9 @@ body {
 }
 
 .add-btn:hover {
-  background: #5568d3;
+  background: var(--accent-sage-dark);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(139, 155, 126, 0.3);
 }
 
 .add-btn:active {
@@ -165,13 +165,13 @@ body {
 /* Domain List Section */
 .domain-list-section {
   padding: 20px;
-  background: var(--bg-white);
+  background: var(--bg-cream);
 }
 
 .domain-list-section h3 {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--text-dark);
+  color: var(--text-charcoal);
   margin-bottom: 12px;
 }
 
@@ -187,17 +187,17 @@ body {
 }
 
 .domain-list::-webkit-scrollbar-track {
-  background: var(--bg-light);
+  background: var(--bg-cream);
   border-radius: 4px;
 }
 
 .domain-list::-webkit-scrollbar-thumb {
-  background: var(--border-gray);
+  background: var(--border-light);
   border-radius: 4px;
 }
 
 .domain-list::-webkit-scrollbar-thumb:hover {
-  background: var(--inactive-gray);
+  background: var(--accent-sage-light);
 }
 
 .domain-item {
@@ -205,20 +205,20 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  background: var(--bg-light);
+  background: rgba(0, 0, 0, 0.02);
   border-radius: 6px;
   margin-bottom: 8px;
   transition: all 0.2s ease;
 }
 
 .domain-item:hover {
-  background: var(--border-gray);
+  background: var(--border-light);
   transform: translateX(2px);
 }
 
 .domain-name {
   font-size: 14px;
-  color: var(--text-dark);
+  color: var(--text-charcoal);
   font-weight: 500;
   flex: 1;
   word-break: break-all;
@@ -246,8 +246,8 @@ body {
 .empty-state {
   text-align: center;
   padding: 30px 20px;
-  color: var(--text-gray);
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: 14px;
   display: none;
 }
 
@@ -275,8 +275,8 @@ body {
 
 .temp-toggle-section {
   padding: 20px;
-  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
-  border-bottom: 3px solid #ea580c;
+  background: var(--accent-sage-light);
+  border-bottom: 2px solid var(--accent-sage);
 }
 
 .temp-toggle-header {
@@ -371,7 +371,7 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.95);
-  color: #1f2937;
+  color: var(--text-charcoal);
   cursor: pointer;
   transition: all 0.2s ease;
 }
