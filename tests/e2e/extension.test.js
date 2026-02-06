@@ -54,7 +54,7 @@ describe('Grayscale Filter Extension E2E', () => {
   // - .remove-btn (dynamically created in popup.js line 160)
   // - #powerButton (line 19)
   // - #durationSelect (line 27)
-  // - #tempTimer (line 36)
+  // - #timerDisplay (line 36)
   // - #timerDisplay (line 38)
   // - #cancelOverride (line 39)
 
@@ -204,9 +204,9 @@ describe('Grayscale Filter Extension E2E', () => {
       const isDisabled = await popupPage.$eval('#powerButton', el => el.disabled);
       expect(isDisabled).toBe(true);
 
-      // Timer should be hidden
-      const timerDisplay = await popupPage.$eval('#tempTimer', el => el.style.display);
-      expect(timerDisplay).toBe('none');
+      // Timer should be hidden (override banner contains timer)
+      const bannerDisplay = await popupPage.$eval('#overrideBanner', el => el.style.display);
+      expect(bannerDisplay).toBe('none');
     }, 5000);
 
     test('temporary override can be set and cancelled via storage', async () => {
