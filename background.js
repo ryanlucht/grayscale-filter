@@ -1,27 +1,6 @@
 // background.js - Service worker for coordinating grayscale filter across tabs with temporary override support
-
-// Extract domain from URL
-function extractDomain(url) {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.hostname.replace(/^www\./, '').toLowerCase();
-  } catch (error) {
-    return null;
-  }
-}
-
-// Determine if grayscale should be applied based on permanent list and temporary overrides
-function shouldApplyGrayscaleFilter(domain, permanentDomains, temporaryOverrides) {
-  const override = temporaryOverrides[domain];
-
-  // Check for active temporary override (highest priority)
-  if (override && override.expiresAt > Date.now()) {
-    return override.state === 'grayscale';
-  }
-
-  // Fall back to permanent list
-  return permanentDomains.includes(domain);
-}
+import { extractDomain } from './utils/domain.js';
+import { shouldApplyGrayscaleFilter } from './utils/filter.js';
 
 // Check if domain matches and apply/remove filter (with temporary override support)
 async function checkAndApplyFilterWithOverrides(tabId, url) {
