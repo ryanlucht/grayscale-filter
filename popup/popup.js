@@ -10,6 +10,14 @@ let domainList;
 let emptyState;
 let errorMessage;
 
+// Override banner elements
+let overrideBanner;
+let overrideStatusText;
+let powerButton;
+let durationSelect;
+let cancelOverride;
+let timerDisplay;
+
 // State
 let currentDomain = null;
 let domains = [];
@@ -29,13 +37,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   emptyState = document.getElementById('emptyState');
   errorMessage = document.getElementById('errorMessage');
 
-  // Temporary toggle elements
-  const powerButton = document.getElementById('powerButton');
-  const durationSelect = document.getElementById('durationSelect');
-  const tempTimer = document.getElementById('tempTimer');
-  const timerDisplay = document.getElementById('timerDisplay');
-  const cancelOverride = document.getElementById('cancelOverride');
-  const tempStatus = document.getElementById('tempStatus');
+  // Override banner elements
+  overrideBanner = document.getElementById('overrideBanner');
+  overrideStatusText = document.getElementById('overrideStatusText');
+  powerButton = document.getElementById('powerButton');
+  durationSelect = document.getElementById('durationSelect');
+  cancelOverride = document.getElementById('cancelOverride');
+  timerDisplay = document.getElementById('timerDisplay');
 
   // Set up event listeners
   toggleButton.addEventListener('click', handleToggle);
@@ -45,8 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       handleManualAdd();
     }
   });
-  powerButton.addEventListener('click', () => handlePowerButton(powerButton, durationSelect, tempStatus, tempTimer, timerDisplay));
-  cancelOverride.addEventListener('click', () => handleCancelOverride(powerButton, tempStatus, tempTimer));
+  powerButton.addEventListener('click', handlePowerButton);
+  cancelOverride.addEventListener('click', handleCancelOverride);
 
   // Clear error message when user types
   domainInput.addEventListener('input', () => {
@@ -57,8 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadCurrentTab();
   await loadDomains();
   await loadTemporaryOverride();
-  updateUI(powerButton, tempStatus, tempTimer, timerDisplay);
-  startTimerUpdate(powerButton, tempStatus, tempTimer, timerDisplay);
+  updateUI();
+  startTimerUpdate();
 });
 
 // Load current tab information
