@@ -114,6 +114,9 @@ Invalid entries:
 │   ├── popup.html        # UI structure
 │   ├── popup.css         # Styling
 │   └── popup.js          # UI logic
+├── utils/
+│   ├── domain.js         # Shared domain utilities
+│   └── filter.js         # Shared filter logic
 ├── icons/                # Extension icons
 │   ├── icon16.png
 │   ├── icon48.png
@@ -125,12 +128,10 @@ Invalid entries:
 
 This extension requires the following permissions:
 
-- **storage**: Save your domain list and temporary override settings
-- **activeTab**: Get the URL of the current tab for quick toggle
-- **tabs**: Query all tabs to apply/remove filters
-- **scripting**: Inject the content script
-- **alarms**: Manage expiration of temporary overrides
-- **host_permissions (<all_urls>)**: Run on all websites to apply the filter
+- **storage**: Save your domain list and temporary override settings (syncs across devices if signed into Chrome)
+- **activeTab**: Get the URL of the current tab for quick toggle feature
+- **tabs**: Query all tabs to apply/remove filters when domain list changes
+- **alarms**: Manage expiration of temporary overrides (15min/30min/1hr/1day timers)
 
 ### Privacy
 
@@ -201,6 +202,15 @@ This is a personal project, but suggestions and improvements are welcome!
 This project is provided as-is for personal use.
 
 ## Version History
+
+### v1.2.0
+- IMPROVED: Redesigned UI with e-reader aesthetic (warm cream, sage accents, Noto Serif typography)
+- IMPROVED: Visual hierarchy prioritizes current site actions
+- IMPROVED: Temporary override section more prominent with clear countdown
+- FIXED: Removed unused permissions for Chrome Web Store compliance
+- FIXED: Timer memory leak when popup closes
+- INTERNAL: Comprehensive test coverage (56 unit tests, 13 E2E tests)
+- INTERNAL: Modular codebase with shared utilities
 
 ### v1.1.0
 - NEW: Quick Override - temporary toggle for 15min to 1 day
