@@ -7,17 +7,22 @@
 }
 
 :root {
+  /* E-reader color palette */
+  --bg-cream: #FAF9F6;
+  --text-charcoal: #2C2C2C;
+  --text-secondary: #6B6B6B;
+  --border-light: #E0E0E0;
+
+  /* Sage green accents (zen, nature-inspired) */
+  --accent-sage: #8B9B7E;
+  --accent-sage-light: #A8B89E;
+  --accent-sage-dark: #6E8066;
+
+  /* Utility colors */
   --active-green: #10b981;
   --active-green-hover: #059669;
-  --inactive-gray: #6b7280;
-  --inactive-gray-hover: #4b5563;
   --danger-red: #ef4444;
   --danger-red-hover: #dc2626;
-  --bg-light: #f9fafb;
-  --bg-white: #ffffff;
-  --border-gray: #e5e7eb;
-  --text-dark: #1f2937;
-  --text-gray: #6b7280;
   --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
