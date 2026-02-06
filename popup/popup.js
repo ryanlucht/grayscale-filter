@@ -107,7 +107,7 @@ async function loadDomains() {
 }
 
 // Update UI based on current state
-function updateUI(powerButton, tempStatus, tempTimer, timerDisplay) {
+function updateUI() {
   // Update toggle button
   updateToggleButton();
 
@@ -115,9 +115,7 @@ function updateUI(powerButton, tempStatus, tempTimer, timerDisplay) {
   renderDomainList();
 
   // Update temporary toggle UI
-  if (powerButton) {
-    updateTemporaryUI(powerButton, tempStatus, tempTimer, timerDisplay);
-  }
+  updateTemporaryUI();
 }
 
 // Update toggle button state and text
@@ -354,12 +352,12 @@ async function loadTemporaryOverride() {
 }
 
 // Handle power button click
-async function handlePowerButton(powerButton, durationSelect, tempStatus, tempTimer, timerDisplay) {
+async function handlePowerButton() {
   if (!currentDomain) return;
 
   // If override is active, clicking cancels it
   if (temporaryOverride) {
-    await handleCancelOverride(powerButton, tempStatus, tempTimer);
+    await handleCancelOverride();
     return;
   }
 
@@ -378,7 +376,7 @@ async function handlePowerButton(powerButton, durationSelect, tempStatus, tempTi
     });
 
     await loadTemporaryOverride();
-    updateTemporaryUI(powerButton, tempStatus, tempTimer, timerDisplay);
+    updateTemporaryUI();
     showSuccessMessage(overrideState, durationMs);
   } catch (error) {
     console.error('Error setting temporary override:', error);
@@ -387,7 +385,7 @@ async function handlePowerButton(powerButton, durationSelect, tempStatus, tempTi
 }
 
 // Handle cancel override button
-async function handleCancelOverride(powerButton, tempStatus, tempTimer) {
+async function handleCancelOverride() {
   if (!currentDomain) return;
 
   try {
@@ -397,7 +395,7 @@ async function handleCancelOverride(powerButton, tempStatus, tempTimer) {
     });
 
     temporaryOverride = null;
-    updateTemporaryUI(powerButton, tempStatus, tempTimer);
+    updateTemporaryUI();
   } catch (error) {
     console.error('Error clearing temporary override:', error);
     showError('Failed to cancel override');
@@ -405,51 +403,47 @@ async function handleCancelOverride(powerButton, tempStatus, tempTimer) {
 }
 
 // Update temporary toggle UI
-function updateTemporaryUI(powerButton, tempStatus, tempTimer, timerDisplay) {
+function updateTemporaryUI() {
   if (!currentDomain) {
-    powerButton.disabled = true;
-    tempStatus.textContent = '';
-    tempTimer.style.display = 'none';
+    // No valid domain - hide banner, disable power button
+    overrideBanner.style.display = 'none';
+    if (powerButton) powerButton.disabled = true;
     return;
   }
 
-  powerButton.disabled = false;
+  if (powerButton) powerButton.disabled = false;
 
   if (temporaryOverride && temporaryOverride.active) {
-    // Override is active
-    powerButton.classList.add('active');
+    // Override is active - SHOW banner
+    overrideBanner.style.display = 'flex';
 
     const stateText = temporaryOverride.state === 'grayscale'
-      ? 'Grayscale Override'
-      : 'Color Override';
-    tempStatus.textContent = stateText;
+      ? 'Grayscale Override Active'
+      : 'Color Override Active';
+    overrideStatusText.textContent = stateText;
 
-    tempTimer.style.display = 'flex';
-    updateTimerDisplay(timerDisplay);
+    // Update timer
+    updateTimerDisplay();
+
+    // Mark power button as active
+    if (powerButton) powerButton.classList.add('active');
   } else {
-    // No active override
-    powerButton.classList.remove('active');
+    // No active override - HIDE banner
+    overrideBanner.style.display = 'none';
 
-    const isInPermanentList = domains.includes(currentDomain);
-    tempStatus.textContent = isInPermanentList
-      ? 'Click to show in color'
-      : 'Click to grayscale';
-
-    tempTimer.style.display = 'none';
+    // Reset power button state
+    if (powerButton) powerButton.classList.remove('active');
   }
 }
 
 // Update timer display
-function updateTimerDisplay(timerDisplay) {
+function updateTimerDisplay() {
   if (!temporaryOverride || !temporaryOverride.active) return;
 
   const remainingMs = temporaryOverride.expiresAt - Date.now();
   if (remainingMs <= 0) {
     temporaryOverride = null;
-    const powerButton = document.getElementById('powerButton');
-    const tempStatus = document.getElementById('tempStatus');
-    const tempTimer = document.getElementById('tempTimer');
-    updateTemporaryUI(powerButton, tempStatus, tempTimer, timerDisplay);
+    updateTemporaryUI();
     return;
   }
 
@@ -466,16 +460,16 @@ function updateTimerDisplay(timerDisplay) {
 }
 
 // Start timer update interval
-function startTimerUpdate(powerButton, tempStatus, tempTimer, timerDisplay) {
+function startTimerUpdate() {
   if (timerInterval) clearInterval(timerInterval);
 
   timerInterval = setInterval(() => {
     if (temporaryOverride && temporaryOverride.active) {
-      updateTimerDisplay(timerDisplay);
+      updateTimerDisplay();
 
       if (temporaryOverride.expiresAt <= Date.now()) {
         loadTemporaryOverride().then(() => {
-          updateTemporaryUI(powerButton, tempStatus, tempTimer, timerDisplay);
+          updateTemporaryUI();
         });
       }
     }
