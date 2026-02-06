@@ -123,17 +123,19 @@ function updateToggleButton() {
   if (!currentDomain) {
     toggleButton.disabled = true;
     toggleText.textContent = 'No valid site';
-    toggleButton.className = 'toggle-btn';
+    toggleButton.className = 'btn-primary';
     return;
   }
 
   const isActive = domains.includes(currentDomain);
 
   if (isActive) {
-    toggleButton.className = 'toggle-btn active';
+    // Domain is in grayscale list - button removes it
+    toggleButton.className = 'btn-primary active';
     toggleText.textContent = 'Remove from Grayscale';
   } else {
-    toggleButton.className = 'toggle-btn inactive';
+    // Domain not in list - button adds it
+    toggleButton.className = 'btn-primary';
     toggleText.textContent = 'Add to Grayscale';
   }
 }
