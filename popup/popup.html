@@ -8,67 +8,49 @@
 </head>
 <body>
   <div class="container">
-    <!-- Temporary Toggle Section -->
-    <div class="temp-toggle-section">
-      <div class="temp-toggle-header">
-        <h2>⚡ Quick Override</h2>
-        <div id="tempStatus" class="temp-status"></div>
+    <!-- Override Banner (hidden when inactive) -->
+    <div id="overrideBanner" class="section override-banner" style="display: none;">
+      <div class="override-status">
+        <span id="overrideStatusText">Grayscale Override Active</span>
+        <span id="timerDisplay" class="timer">--:--</span>
       </div>
+      <button id="cancelOverride" class="btn-secondary">Cancel</button>
+    </div>
 
-      <div class="temp-toggle-controls">
-        <button id="powerButton" class="power-button" title="Temporary toggle">
+    <!-- Current Site Section -->
+    <div class="section current-site-section">
+      <h2 class="section-heading">Current Site</h2>
+      <div id="currentDomain" class="current-domain">Loading...</div>
+      <button id="toggleButton" class="btn-primary">
+        <span id="toggleText">Add to Grayscale</span>
+      </button>
+      <!-- Power button for temporary override -->
+      <div class="override-controls">
+        <button id="powerButton" class="btn-icon" title="Temporary override">
           <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M12 2v10M18.36 6.64a9 9 0 1 1-12.73 0"></path>
           </svg>
         </button>
-
-        <div class="duration-selector">
-          <label for="durationSelect">Duration:</label>
-          <select id="durationSelect" class="duration-dropdown">
-            <option value="900000">15 minutes</option>
-            <option value="1800000" selected>30 minutes</option>
-            <option value="3600000">1 hour</option>
-            <option value="86400000">1 day</option>
-          </select>
-        </div>
-      </div>
-
-      <div id="tempTimer" class="temp-timer" style="display: none;">
-        <span class="timer-label">Override expires in:</span>
-        <span id="timerDisplay" class="timer-display">--:--</span>
-        <button id="cancelOverride" class="cancel-btn">Cancel</button>
+        <select id="durationSelect" class="duration-select">
+          <option value="900000">15 min</option>
+          <option value="1800000" selected>30 min</option>
+          <option value="3600000">1 hour</option>
+          <option value="86400000">1 day</option>
+        </select>
       </div>
     </div>
 
-    <!-- Header -->
-    <div class="header">
-      <h1>🎨 Grayscale Filter</h1>
-    </div>
-
-    <!-- Quick Toggle for Current Site -->
-    <div class="quick-toggle">
-      <div id="currentDomain" class="current-domain">Loading...</div>
-      <button id="toggleButton" class="toggle-btn">
-        <span id="toggleText">Add to Grayscale</span>
-      </button>
-    </div>
-
-    <!-- Manual Add Section -->
-    <div class="add-section">
-      <input
-        type="text"
-        id="domainInput"
-        class="domain-input"
-        placeholder="example.com"
-        aria-label="Enter domain name"
-      >
-      <button id="addButton" class="add-btn">Add Domain</button>
+    <!-- Manual Entry Section -->
+    <div class="section manual-entry-section">
+      <h2 class="section-heading">Add Domain</h2>
+      <input type="text" id="domainInput" class="input" placeholder="example.com" aria-label="Enter domain name">
+      <button id="addButton" class="btn-primary">Add Domain</button>
       <div id="errorMessage" class="error-message"></div>
     </div>
 
-    <!-- Domain List -->
-    <div class="domain-list-section">
-      <h3>Grayscaled Websites</h3>
+    <!-- Domain List Section -->
+    <div class="section domain-list-section">
+      <h2 class="section-heading">Grayscaled Websites</h2>
       <div id="domainList" class="domain-list"></div>
       <div id="emptyState" class="empty-state">No domains added yet</div>
     </div>
