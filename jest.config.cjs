@@ -4,18 +4,29 @@ module.exports = {
   moduleFileExtensions: ['js', 'mjs'],
   testMatch: ['**/tests/**/*.test.js'],
   setupFilesAfterEnv: ['./tests/setup.js'],
-  // Note: Production files are not ES6 modules and cannot be imported in Jest's Node environment.
-  // Coverage is 0% because tests use extracted pure functions in tests/helpers/extractors.js.
-  // Phase 4 will refactor production code to be modular, enabling direct testing and coverage.
+  // Note: utils/ modules are ES6 and fully unit-testable with 70%+ coverage.
+  // Production files (popup.js, background.js, content.js) import from utils/
+  // but are primarily tested via E2E tests due to Chrome API dependencies.
   collectCoverageFrom: [
-    'background.js',
-    'content.js',
-    'popup/popup.js',
-    // Also track test helpers (what we actually test)
-    'tests/helpers/**/*.js'
+    'utils/**/*.js',        // Shared utilities (testable)
+    'background.js',        // Service worker (E2E tested)
+    'content.js',           // Content script (E2E tested)
+    'popup/popup.js',       // Popup UI (E2E tested)
   ],
-  // Coverage thresholds removed until Phase 4 refactors code to be testable
-  // Current: 0% (production files not modular)
-  // Phase 4 goal: 70%+ after refactoring
+  coverageThreshold: {
+    'utils/domain.js': {
+      statements: 80,
+      branches: 70,
+      functions: 80,
+      lines: 80,
+    },
+    'utils/filter.js': {
+      statements: 80,
+      branches: 70,
+      functions: 100,
+      lines: 80,
+    },
+    // No global threshold - production files tested via E2E, utils tested via unit tests
+  },
   verbose: true
 };
