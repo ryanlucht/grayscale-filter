@@ -6,10 +6,12 @@ import { safeSendMessage } from './utils/messaging.js';
 // ============================================
 // WRITE SERIALIZATION
 // ============================================
-// Multiple message/alarm handlers can race to read-modify-write
-// `temporaryOverrides` concurrently (lost-update problem). Chain every
-// mutation onto a single promise so they run one at a time in order.
+// Multiple message/alarm handlers can race to read-modify-write storage.
+// Chain every mutation onto a single promise so permanent-domain and
+// temporary-override updates run one at a time in arrival order.
 let writeQueue = Promise.resolve();
+let refreshGeneration = 0;
+const tabUpdateGenerations = new Map();
 
 function enqueueWrite(taskFn) {
   const run = () => taskFn();
@@ -17,6 +19,12 @@ function enqueueWrite(taskFn) {
   // Keep the chain alive even if a task throws/rejects.
   writeQueue = resultPromise.catch(() => {});
   return resultPromise;
+}
+
+function beginTabUpdate(tabId) {
+  const generation = (tabUpdateGenerations.get(tabId) || 0) + 1;
+  tabUpdateGenerations.set(tabId, generation);
+  return generation;
 }
 
 // Check if domain matches and apply/remove filter (with temporary override support)
@@ -28,28 +36,81 @@ function enqueueWrite(taskFn) {
 export async function checkAndApplyFilterWithOverrides(tabId, url) {
   const domain = extractDomain(url);
   if (!domain) return;
-
-  // Skip chrome://, edge://, about:, and other special URLs
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    return;
-  }
+  const generation = beginTabUpdate(tabId);
 
   try {
     const result = await chrome.storage.sync.get(['domains', 'temporaryOverrides']);
+    if (tabUpdateGenerations.get(tabId) !== generation) return;
     const domains = result.domains || [];
     const temporaryOverrides = result.temporaryOverrides || {};
-
-    // Determine filter state using priority algorithm (expired overrides
-    // are treated as absent internally - see utils/filter.js)
-    const shouldApplyGrayscale = shouldApplyGrayscaleFilter(domain, domains, temporaryOverrides);
-
-    safeSendMessage(tabId, {
-      action: shouldApplyGrayscale ? 'apply' : 'remove',
-      domain
-    });
+    applyStoredFilterState(tabId, url, domains, temporaryOverrides);
   } catch (error) {
     console.error('Grayscale Filter: Error in checkAndApplyFilterWithOverrides:', error);
   }
+}
+
+// Apply a previously-read storage snapshot to one tab. Keeping this pure of
+// storage reads lets a storage change update every open tab with one read.
+function applyStoredFilterState(tabId, url, domains, temporaryOverrides) {
+  const domain = extractDomain(url);
+  if (!domain) return;
+
+  const shouldApplyGrayscale = shouldApplyGrayscaleFilter(
+    domain,
+    domains,
+    temporaryOverrides
+  );
+
+  safeSendMessage(tabId, {
+    action: shouldApplyGrayscale ? 'apply' : 'remove',
+    domain
+  });
+}
+
+// Recompute every open tab from one authoritative storage snapshot.
+export async function refreshAllTabsFromStorage() {
+  const generation = ++refreshGeneration;
+  const [result, tabs] = await Promise.all([
+    chrome.storage.sync.get(['domains', 'temporaryOverrides']),
+    chrome.tabs.query({})
+  ]);
+  // A newer storage change started while this snapshot was loading. Only
+  // the newest refresh may publish tab state.
+  if (generation !== refreshGeneration) return;
+  const domains = result.domains || [];
+  const temporaryOverrides = result.temporaryOverrides || {};
+
+  tabs.forEach((tab) => {
+    if (tab.id != null && tab.url) {
+      beginTabUpdate(tab.id);
+      applyStoredFilterState(tab.id, tab.url, domains, temporaryOverrides);
+    }
+  });
+}
+
+// Add/remove a permanent domain through the same serialized authority used
+// by overrides. Returning the committed snapshot keeps the popup in sync.
+export async function setDomainEnabled(domain, enabled) {
+  return enqueueWrite(async () => {
+    const result = await chrome.storage.sync.get(['domains']);
+    const storedDomains = Array.isArray(result.domains) ? result.domains : [];
+    const domains = [...new Set(storedDomains)];
+    const isEnabled = domains.includes(domain);
+
+    if (enabled === isEnabled && domains.length === storedDomains.length) {
+      return domains;
+    }
+
+    let updatedDomains = domains;
+    if (enabled && !isEnabled) {
+      updatedDomains = [...domains, domain];
+    } else if (!enabled && isEnabled) {
+      updatedDomains = domains.filter((storedDomain) => storedDomain !== domain);
+    }
+
+    await chrome.storage.sync.set({ domains: updatedDomains });
+    return updatedDomains;
+  });
 }
 
 // Periodic cleanup of expired overrides. This is the single owner of
@@ -171,18 +232,24 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // themselves.
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' && (changes.domains || changes.temporaryOverrides)) {
-    chrome.tabs.query({}, (tabs) => {
-      tabs.forEach((tab) => {
-        if (tab.url) {
-          checkAndApplyFilterWithOverrides(tab.id, tab.url);
-        }
-      });
+    refreshAllTabsFromStorage().catch((error) => {
+      console.error('Grayscale Filter: Error refreshing tabs after storage change:', error);
     });
   }
 });
 
 // Handle messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'setDomainEnabled') {
+    setDomainEnabled(message.domain, message.enabled === true)
+      .then((domains) => sendResponse({ success: true, domains }))
+      .catch((error) => {
+        console.error('Error updating domain:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
+  }
+
   if (message.action === 'setTemporaryOverride') {
     handleTemporaryOverride(message.domain, message.state, message.duration)
       .then(() => sendResponse({ success: true }))
@@ -200,6 +267,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       if (override && override.expiresAt > Date.now()) {
         sendResponse({
+          success: true,
           active: true,
           state: override.state,
           expiresAt: override.expiresAt,
@@ -210,11 +278,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           durationMs: override.durationMs
         });
       } else {
-        sendResponse({ active: false });
+        sendResponse({ success: true, active: false });
       }
     }).catch((error) => {
       console.error('Error getting temporary override:', error);
-      sendResponse({ active: false });
+      sendResponse({ success: false, active: false, error: error.message });
     });
     return true;
   }

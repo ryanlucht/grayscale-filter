@@ -4,6 +4,8 @@ import {
   checkAndApplyFilterWithOverrides,
   handleTemporaryOverride,
   clearTemporaryOverride,
+  setDomainEnabled,
+  refreshAllTabsFromStorage,
 } from '../../background.js';
 
 // Grab the listener callbacks background.js registered at import time,
@@ -93,6 +95,59 @@ describe('background.js checkAndApplyFilterWithOverrides (C4 regression)', () =>
     await checkAndApplyFilterWithOverrides(3, 'chrome://extensions/');
     expect(chrome.storage.sync.get).not.toHaveBeenCalled();
   });
+
+  test('ignores a stale tab check that finishes after a newer one', async () => {
+    let resolveFirstRead;
+    chrome.storage.sync.get
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveFirstRead = resolve;
+      }))
+      .mockResolvedValueOnce({ domains: ['example.com'], temporaryOverrides: {} });
+
+    const staleCheck = checkAndApplyFilterWithOverrides(4, 'https://example.com/');
+    const currentCheck = checkAndApplyFilterWithOverrides(4, 'https://example.com/');
+    await currentCheck;
+    resolveFirstRead({ domains: [], temporaryOverrides: {} });
+    await staleCheck;
+
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(1);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+      4,
+      { action: 'apply', domain: 'example.com' },
+      expect.any(Function)
+    );
+  });
+});
+
+describe('background.js full-tab refresh ordering', () => {
+  test('an older refresh cannot publish after a newer storage change', async () => {
+    let resolveFirstRead;
+    let resolveFirstTabs;
+    chrome.storage.sync.get
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveFirstRead = resolve;
+      }))
+      .mockResolvedValueOnce({ domains: ['example.com'], temporaryOverrides: {} });
+    chrome.tabs.query
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveFirstTabs = resolve;
+      }))
+      .mockResolvedValueOnce([{ id: 5, url: 'https://example.com/' }]);
+
+    const staleRefresh = refreshAllTabsFromStorage();
+    const currentRefresh = refreshAllTabsFromStorage();
+    await currentRefresh;
+    resolveFirstRead({ domains: [], temporaryOverrides: {} });
+    resolveFirstTabs([{ id: 5, url: 'https://example.com/' }]);
+    await staleRefresh;
+
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(1);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+      5,
+      { action: 'apply', domain: 'example.com' },
+      expect.any(Function)
+    );
+  });
 });
 
 describe('background.js tabs.onUpdated (C4 write-quota regression)', () => {
@@ -128,42 +183,54 @@ describe('background.js handleTemporaryOverride / clearTemporaryOverride (C4 reg
     expect(chrome.storage.sync.set).toHaveBeenCalledTimes(1);
   });
 
-  test('storage.onChanged listener fans a domains/temporaryOverrides change out to all tabs', () => {
+  test('storage.onChanged reads storage once and fans the snapshot out to all tabs', async () => {
     expect(onChangedListener).toBeInstanceOf(Function);
 
-    chrome.tabs.query.mockImplementation((query, callback) => callback([{ id: 1, url: 'https://example.com/' }]));
-    chrome.storage.sync.get.mockResolvedValue({ domains: [], temporaryOverrides: {} });
+    chrome.tabs.query.mockResolvedValue([
+      { id: 1, url: 'https://example.com/' },
+      { id: 2, url: 'https://other.com/' }
+    ]);
+    chrome.storage.sync.get.mockResolvedValue({
+      domains: ['example.com'],
+      temporaryOverrides: {}
+    });
 
     onChangedListener({ temporaryOverrides: {} }, 'sync');
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(chrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
+    expect(chrome.tabs.query).toHaveBeenCalledWith({});
+    expect(chrome.storage.sync.get).toHaveBeenCalledTimes(1);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
   });
 });
 
 describe('background.js write serialization (C5 regression)', () => {
-  test('concurrent handleTemporaryOverride calls for different domains do not clobber each other', async () => {
-    // Simulate a real (slightly delayed) storage backend so two
-    // non-awaited calls can genuinely interleave if not serialized.
-    let store = {};
+  function installDelayedStorage(initialStore = {}) {
+    let store = { ...initialStore };
     chrome.storage.sync.get.mockImplementation((keys) => (
       new Promise((resolve) => {
         setTimeout(() => {
           const result = {};
-          keys.forEach((k) => {
-            if (store[k] !== undefined) result[k] = store[k];
+          keys.forEach((key) => {
+            if (store[key] !== undefined) result[key] = store[key];
           });
           resolve(result);
         }, 5);
       })
     ));
-    chrome.storage.sync.set.mockImplementation((obj) => (
+    chrome.storage.sync.set.mockImplementation((object) => (
       new Promise((resolve) => {
         setTimeout(() => {
-          store = { ...store, ...obj };
+          store = { ...store, ...object };
           resolve();
         }, 5);
       })
     ));
+    return () => store;
+  }
+
+  test('concurrent handleTemporaryOverride calls for different domains do not clobber each other', async () => {
+    const getStore = installDelayedStorage();
 
     // Fire both without awaiting the first - a lost-update bug would have
     // both read the same empty temporaryOverrides and the second write
@@ -172,7 +239,38 @@ describe('background.js write serialization (C5 regression)', () => {
     const p2 = handleTemporaryOverride('b.com', 'color', 60000);
     await Promise.all([p1, p2]);
 
-    expect(Object.keys(store.temporaryOverrides || {}).sort()).toEqual(['a.com', 'b.com']);
+    expect(Object.keys(getStore().temporaryOverrides || {}).sort()).toEqual(['a.com', 'b.com']);
+  });
+
+  test('concurrent domain additions preserve both domains', async () => {
+    const getStore = installDelayedStorage({ domains: [] });
+
+    await Promise.all([
+      setDomainEnabled('a.com', true),
+      setDomainEnabled('b.com', true)
+    ]);
+
+    expect(getStore().domains).toEqual(['a.com', 'b.com']);
+  });
+
+  test('concurrent domain removals do not reintroduce either domain', async () => {
+    const getStore = installDelayedStorage({ domains: ['a.com', 'b.com', 'keep.com'] });
+
+    await Promise.all([
+      setDomainEnabled('a.com', false),
+      setDomainEnabled('b.com', false)
+    ]);
+
+    expect(getStore().domains).toEqual(['keep.com']);
+  });
+
+  test('an already-enabled domain is a no-op', async () => {
+    chrome.storage.sync.get.mockResolvedValue({ domains: ['example.com'] });
+
+    const domains = await setDomainEnabled('example.com', true);
+
+    expect(domains).toEqual(['example.com']);
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled();
   });
 });
 
@@ -222,7 +320,7 @@ describe('background.js durationMs on temporary overrides (popup progress-bar su
     await flushMicrotasks();
 
     expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({ active: true, durationMs: 60000 })
+      expect.objectContaining({ success: true, active: true, durationMs: 60000 })
     );
   });
 
@@ -250,8 +348,28 @@ describe('background.js durationMs on temporary overrides (popup progress-bar su
 
     expect(sendResponse).toHaveBeenCalledTimes(1);
     const response = sendResponse.mock.calls[0][0];
+    expect(response.success).toBe(true);
     expect(response.active).toBe(true);
     expect(response.durationMs).toBeUndefined();
+  });
+
+  test('getTemporaryOverride reports a storage read failure explicitly', async () => {
+    const sendResponse = jest.fn();
+    chrome.storage.sync.get.mockRejectedValue(new Error('sync unavailable'));
+
+    onMessageListener(
+      { action: 'getTemporaryOverride', domain: 'example.com' },
+      {},
+      sendResponse
+    );
+
+    await flushMicrotasks();
+
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: false,
+      active: false,
+      error: 'sync unavailable'
+    });
   });
 });
 

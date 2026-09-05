@@ -97,7 +97,6 @@ describe('popup.js timer lifecycle (C1 regression)', () => {
     popup.__testHooks.setState({
       currentDomain: 'example.com',
       domains: [],
-      currentTabId: 1,
       temporaryOverride: null,
     });
   });
@@ -108,7 +107,7 @@ describe('popup.js timer lifecycle (C1 regression)', () => {
   });
 
   test('interval tick after expiry does not throw (regression for null deref on temporaryOverride.expiresAt)', () => {
-    global.chrome.runtime.sendMessage.mockResolvedValue({ active: false });
+    global.chrome.runtime.sendMessage.mockResolvedValue({ success: true, active: false });
     popup.__testHooks.setState({
       temporaryOverride: { active: true, state: 'grayscale', expiresAt: Date.now() + 1000 },
     });
@@ -124,7 +123,7 @@ describe('popup.js timer lifecycle (C1 regression)', () => {
   });
 
   test('the interval stops once the override expires instead of ticking forever', async () => {
-    global.chrome.runtime.sendMessage.mockResolvedValue({ active: false });
+    global.chrome.runtime.sendMessage.mockResolvedValue({ success: true, active: false });
     popup.__testHooks.setState({
       temporaryOverride: { active: true, state: 'grayscale', expiresAt: Date.now() + 1000 },
     });
@@ -222,43 +221,131 @@ describe('popup.js addDomain/removeDomain (C8 regression)', () => {
     popup.__testHooks.setState({
       currentDomain: null,
       domains: [],
-      currentTabId: null,
       temporaryOverride: null,
     });
-    global.chrome.tabs.query.mockResolvedValue([]);
   });
 
-  test('addDomain leaves the in-memory list untouched when storage.set rejects', async () => {
-    global.chrome.storage.sync.set.mockRejectedValue(new Error('QUOTA_BYTES_PER_ITEM quota exceeded'));
+  test('addDomain leaves the in-memory list untouched when the background reports failure', async () => {
+    global.chrome.runtime.sendMessage.mockResolvedValue({
+      success: false,
+      error: 'QUOTA_BYTES_PER_ITEM quota exceeded'
+    });
 
     await popup.addDomain('example.com');
 
     expect(popup.__testHooks.getState().domains).toEqual([]);
+    expect(refs.errorMessage.textContent).toBe('Failed to add domain.');
   });
 
-  test('addDomain adds the domain only after storage.set resolves', async () => {
-    global.chrome.storage.sync.set.mockResolvedValue(undefined);
+  test('addDomain adopts the committed background snapshot', async () => {
+    global.chrome.runtime.sendMessage.mockResolvedValue({
+      success: true,
+      domains: ['existing.com', 'example.com']
+    });
 
     await popup.addDomain('example.com');
 
-    expect(popup.__testHooks.getState().domains).toEqual(['example.com']);
+    expect(popup.__testHooks.getState().domains).toEqual(['existing.com', 'example.com']);
+    expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      action: 'setDomainEnabled',
+      domain: 'example.com',
+      enabled: true
+    });
   });
 
-  test('removeDomain leaves the in-memory list untouched when storage.set rejects', async () => {
+  test('addDomain rejects a malformed success response', async () => {
+    global.chrome.runtime.sendMessage.mockResolvedValue({ success: true });
+
+    await popup.addDomain('example.com');
+
+    expect(popup.__testHooks.getState().domains).toEqual([]);
+    expect(refs.errorMessage.textContent).toBe('Failed to add domain.');
+  });
+
+  test('removeDomain leaves the in-memory list untouched when the background reports failure', async () => {
     popup.__testHooks.setState({ domains: ['example.com'] });
-    global.chrome.storage.sync.set.mockRejectedValue(new Error('QUOTA_BYTES_PER_ITEM quota exceeded'));
+    global.chrome.runtime.sendMessage.mockResolvedValue({
+      success: false,
+      error: 'QUOTA_BYTES_PER_ITEM quota exceeded'
+    });
 
     await popup.removeDomain('example.com');
 
     expect(popup.__testHooks.getState().domains).toEqual(['example.com']);
+    expect(refs.errorMessage.textContent).toBe('Failed to remove domain.');
   });
 
-  test('removeDomain removes the domain only after storage.set resolves', async () => {
+  test('removeDomain adopts the committed background snapshot', async () => {
     popup.__testHooks.setState({ domains: ['example.com'] });
-    global.chrome.storage.sync.set.mockResolvedValue(undefined);
+    global.chrome.runtime.sendMessage.mockResolvedValue({ success: true, domains: [] });
 
     await popup.removeDomain('example.com');
 
     expect(popup.__testHooks.getState().domains).toEqual([]);
+  });
+});
+
+describe('popup.js background response handling', () => {
+  let refs;
+
+  beforeEach(() => {
+    refs = makeDomRefs();
+    popup.__testHooks.setDomRefs(refs);
+    popup.__testHooks.setState({
+      currentDomain: 'example.com',
+      domains: [],
+      temporaryOverride: null,
+    });
+  });
+
+  test('does not announce an override when the worker reports failure', async () => {
+    global.chrome.runtime.sendMessage.mockResolvedValue({
+      success: false,
+      error: 'sync write failed'
+    });
+
+    await popup.handlePowerButton();
+
+    expect(popup.__testHooks.getState().temporaryOverride).toBe(null);
+    expect(refs.errorMessage.textContent).toBe('Failed to set temporary override.');
+  });
+
+  test('shows an override only after both background requests succeed', async () => {
+    const expiresAt = Date.now() + 900000;
+    global.chrome.runtime.sendMessage
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({
+        success: true,
+        active: true,
+        state: 'grayscale',
+        expiresAt,
+        durationMs: 900000
+      });
+
+    await popup.handlePowerButton();
+
+    expect(popup.__testHooks.getState().temporaryOverride).toEqual(
+      expect.objectContaining({ active: true, state: 'grayscale' })
+    );
+    expect(refs.errorMessage.textContent).toContain('Grayscale override active');
+  });
+
+  test('does not hide an override when clearing it fails', async () => {
+    const activeOverride = {
+      active: true,
+      state: 'grayscale',
+      expiresAt: Date.now() + 60000,
+      durationMs: 60000,
+    };
+    popup.__testHooks.setState({ temporaryOverride: activeOverride });
+    global.chrome.runtime.sendMessage.mockResolvedValue({
+      success: false,
+      error: 'sync write failed'
+    });
+
+    await popup.handleCancelOverride();
+
+    expect(popup.__testHooks.getState().temporaryOverride).toBe(activeOverride);
+    expect(refs.errorMessage.textContent).toBe('Failed to cancel override.');
   });
 });

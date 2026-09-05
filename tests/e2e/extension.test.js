@@ -2,11 +2,14 @@
 import {
   launchBrowserWithExtension,
   openExtensionPopup,
+  syncPopupToActiveTab,
   navigateAndWait,
   isGrayscaleApplied,
   clearExtensionStorage,
   closeBrowser,
-  getStorageData
+  getStorageData,
+  startTestServer,
+  closeTestServer
 } from './helpers/extension-loader.js';
 
 describe('Grayscale Filter Extension E2E', () => {
@@ -14,8 +17,12 @@ describe('Grayscale Filter Extension E2E', () => {
   let page;
   let extensionId;
   let popupPage;
+  let testPageUrl;
+  let testDomain;
 
   beforeAll(async () => {
+    testPageUrl = await startTestServer();
+    testDomain = new URL(testPageUrl).hostname;
     const result = await launchBrowserWithExtension();
     browser = result.browser;
     page = result.page;
@@ -28,6 +35,7 @@ describe('Grayscale Filter Extension E2E', () => {
 
   afterAll(async () => {
     await closeBrowser();
+    await closeTestServer();
   });
 
   beforeEach(async () => {
@@ -128,21 +136,20 @@ describe('Grayscale Filter Extension E2E', () => {
 
       // Click remove button for the domain
       const removeButton = await popupPage.$('.remove-btn');
-      if (removeButton) {
-        await removeButton.click();
-        await new Promise(r => setTimeout(r, 500));
+      expect(removeButton).toBeTruthy();
+      await removeButton.click();
+      await new Promise(r => setTimeout(r, 500));
 
-        // Verify domain was removed
-        const storage = await getStorageData(popupPage, ['domains']);
-        expect(storage.domains || []).not.toContain('to-remove.com');
-      }
+      // Verify domain was removed
+      const storage = await getStorageData(popupPage, ['domains']);
+      expect(storage.domains || []).not.toContain('to-remove.com');
     }, 7000);
   });
 
   describe('Grayscale Filter Application', () => {
     test('grayscale style not applied to unlisted domain', async () => {
       // Navigate to a test page
-      await navigateAndWait(page, 'https://example.com');
+      await navigateAndWait(page, testPageUrl);
 
       // Check that grayscale is NOT applied (domain not in list)
       const hasGrayscale = await isGrayscaleApplied(page);
@@ -150,15 +157,14 @@ describe('Grayscale Filter Extension E2E', () => {
     }, 7000);
 
     test('grayscale style applied after domain is added', async () => {
-      // Add example.com to the list via storage
-      await popupPage.evaluate(() => {
+      // Add the fixture domain to the list via storage
+      await popupPage.evaluate((domain) => {
         return new Promise((resolve) => {
-          chrome.storage.sync.set({ domains: ['example.com'] }, resolve);
+          chrome.storage.sync.set({ domains: [domain] }, resolve);
         });
-      });
+      }, testDomain);
 
-      // Navigate to example.com
-      await navigateAndWait(page, 'https://example.com');
+      await navigateAndWait(page, testPageUrl);
 
       // Give extension time to apply filter
       await new Promise(r => setTimeout(r, 1000));
@@ -167,6 +173,32 @@ describe('Grayscale Filter Extension E2E', () => {
       const hasGrayscale = await isGrayscaleApplied(page);
       expect(hasGrayscale).toBe(true);
     }, 7000);
+
+    test('current-site toggle updates storage and the active page', async () => {
+      await navigateAndWait(page, testPageUrl);
+      await syncPopupToActiveTab(popupPage, page);
+
+      const currentDomain = await popupPage.$eval('#currentDomain', (element) => element.textContent);
+      expect(currentDomain).toBe(testDomain);
+
+      await popupPage.$eval('#toggleButton', (element) => element.click());
+      await page.waitForFunction(() =>
+        document.getElementById('grayscale-filter-extension') !== null
+      );
+      await popupPage.waitForFunction(() =>
+        document.getElementById('toggleText')?.textContent === 'Remove from grayscale'
+      );
+      expect((await getStorageData(popupPage, ['domains'])).domains).toContain(testDomain);
+
+      await popupPage.$eval('#toggleButton', (element) => element.click());
+      await page.waitForFunction(() =>
+        document.getElementById('grayscale-filter-extension') === null
+      );
+      await popupPage.waitForFunction(() =>
+        document.getElementById('toggleText')?.textContent === 'Add to grayscale'
+      );
+      expect((await getStorageData(popupPage, ['domains'])).domains || []).not.toContain(testDomain);
+    }, 10000);
   });
 
   describe('Input Validation', () => {
@@ -216,46 +248,53 @@ describe('Grayscale Filter Extension E2E', () => {
       expect(bannerDisplay).toBe('none');
     }, 5000);
 
-    test('temporary override can be set and cancelled via storage', async () => {
-      // Set a temporary override directly via storage (simulating background.js)
-      const expiresAt = Date.now() + 30 * 60 * 1000; // 30 minutes from now
-      await popupPage.evaluate((expiry) => {
-        return new Promise((resolve) => {
-          chrome.storage.sync.set({
-            temporaryOverride: {
-              active: true,
-              domain: 'example.com',
-              state: 'grayscale',
-              expiresAt: expiry
-            }
-          }, resolve);
-        });
-      }, expiresAt);
+    test('temporary override is set, rendered, applied, and cancelled through the popup', async () => {
+      await navigateAndWait(page, testPageUrl);
+      await syncPopupToActiveTab(popupPage, page);
+      await popupPage.select('#durationSelect', '1800000');
+      await popupPage.$eval('#powerButton', (element) => element.click());
 
-      // Reload popup to pick up the override
-      await popupPage.reload({ waitUntil: 'domcontentloaded' });
-      await new Promise(r => setTimeout(r, 1000));
+      await page.waitForFunction(() =>
+        document.getElementById('grayscale-filter-extension') !== null
+      );
+      await popupPage.waitForFunction(() =>
+        document.getElementById('overrideBanner')?.style.display === 'flex'
+      );
+      expect(await isGrayscaleApplied(page)).toBe(true);
 
-      // If currentDomain matches, timer should be visible
-      // Note: In this test context, currentDomain won't be set, so timer may not show
-      // This test verifies storage operations work correctly
-      const storage = await getStorageData(popupPage, ['temporaryOverride']);
-      expect(storage.temporaryOverride).toBeDefined();
-      expect(storage.temporaryOverride.active).toBe(true);
+      const bannerDisplay = await popupPage.$eval('#overrideBanner', (element) => element.style.display);
+      const timerText = await popupPage.$eval('#timerDisplay', (element) => element.textContent);
+      expect(bannerDisplay).toBe('flex');
+      expect(timerText).toMatch(/^\d{1,2}:\d{2}$/);
 
-      // Clear the override
-      await popupPage.evaluate(() => {
-        return new Promise((resolve) => {
-          chrome.storage.sync.remove('temporaryOverride', resolve);
-        });
-      });
+      const storage = await getStorageData(popupPage, ['temporaryOverrides']);
+      expect(storage.temporaryOverrides[testDomain]).toEqual(
+        expect.objectContaining({ state: 'grayscale', durationMs: 30 * 60 * 1000 })
+      );
 
-      await new Promise(r => setTimeout(r, 500));
+      const getResponse = await popupPage.evaluate((domain) => chrome.runtime.sendMessage({
+        action: 'getTemporaryOverride',
+        domain
+      }), testDomain);
+      expect(getResponse).toEqual(expect.objectContaining({
+        success: true,
+        active: true,
+        state: 'grayscale',
+        durationMs: 30 * 60 * 1000
+      }));
 
-      // Verify it's cleared
-      const clearedStorage = await getStorageData(popupPage, ['temporaryOverride']);
-      expect(clearedStorage.temporaryOverride).toBeUndefined();
-    }, 7000);
+      await popupPage.$eval('#cancelOverride', (element) => element.click());
+
+      await page.waitForFunction(() =>
+        document.getElementById('grayscale-filter-extension') === null
+      );
+      await popupPage.waitForFunction(() =>
+        document.getElementById('overrideBanner')?.style.display === 'none'
+      );
+      expect(await popupPage.$eval('#overrideBanner', (element) => element.style.display)).toBe('none');
+      const clearedStorage = await getStorageData(popupPage, ['temporaryOverrides']);
+      expect(clearedStorage.temporaryOverrides || {}).not.toHaveProperty(testDomain);
+    }, 10000);
 
     test('duration selector has multiple options', async () => {
       // Verify duration selector has expected options

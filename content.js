@@ -1,6 +1,8 @@
 // content.js - Applies grayscale CSS filter to web pages
 
 const STYLE_ID = 'grayscale-filter-extension';
+let grayscaleRequested = false;
+let styleInsertionPending = false;
 
 // Extract domain from current URL
 // NOTE: this duplicates utils/domain.js:extractDomain (minus the URL-object
@@ -9,12 +11,8 @@ function getCurrentDomain() {
   try {
     const href = window.location.href;
 
-    // Skip non-http(s) URLs, matching utils/domain.js:extractDomain
-    if (!href.startsWith('http://') && !href.startsWith('https://')) {
-      return null;
-    }
-
     const url = new URL(href);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
     return url.hostname.replace(/^www\./, '').toLowerCase();
   } catch {
     return null;
@@ -41,9 +39,25 @@ function shouldApplyGrayscaleFilter(domain, permanentDomains, temporaryOverrides
 
 // Apply grayscale filter to the page
 function applyGrayscale() {
+  grayscaleRequested = true;
+
   if (document.getElementById(STYLE_ID)) {
     return;
   }
+
+  if (document.head) {
+    insertGrayscaleStyle();
+  } else if (!styleInsertionPending) {
+    styleInsertionPending = true;
+    document.addEventListener('DOMContentLoaded', () => {
+      styleInsertionPending = false;
+      if (grayscaleRequested) insertGrayscaleStyle();
+    }, { once: true });
+  }
+}
+
+function insertGrayscaleStyle() {
+  if (!document.head || document.getElementById(STYLE_ID)) return;
 
   const style = document.createElement('style');
   style.id = STYLE_ID;
@@ -53,20 +67,13 @@ function applyGrayscale() {
       -webkit-filter: grayscale(100%) !important;
     }
   `;
-
-  if (document.head) {
-    document.head.appendChild(style);
-  } else {
-    document.addEventListener('DOMContentLoaded', () => {
-      if (!document.getElementById(STYLE_ID)) {
-        document.head.appendChild(style);
-      }
-    });
-  }
+  document.head.appendChild(style);
 }
 
 // Remove grayscale filter from the page
 function removeGrayscale() {
+  // Cancels a document_start apply that is waiting for <head> to exist.
+  grayscaleRequested = false;
   const style = document.getElementById(STYLE_ID);
   if (style) {
     style.remove();
@@ -125,25 +132,29 @@ function setupMessageListener() {
   try {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
-        if (!isContextValid()) return;
+        if (!isContextValid()) return false;
 
         const currentDomain = getCurrentDomain();
 
         if (message.action === 'apply' && message.domain === currentDomain) {
           applyGrayscale();
           sendResponse({ success: true });
+          return false;
         } else if (message.action === 'remove' && message.domain === currentDomain) {
           removeGrayscale();
           sendResponse({ success: true });
+          return false;
         } else if (message.action === 'check') {
           checkAndApplyGrayscale();
           sendResponse({ success: true });
+          return false;
         }
       } catch {
         // Context invalidated - ignore
       }
 
-      return true;
+      // No asynchronous response is sent; do not hold the message port open.
+      return false;
     });
   } catch {
     // Context invalidated during setup - ignore

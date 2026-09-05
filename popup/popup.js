@@ -1,6 +1,5 @@
 // popup.js - UI logic and Chrome API interactions
 import { extractDomain, normalizeDomain, isValidDomain, formatDuration } from '../utils/domain.js';
-import { safeSendMessage } from '../utils/messaging.js';
 
 // ============================================
 // DOM ELEMENT REFERENCES
@@ -36,7 +35,6 @@ let revisionLabel;
 // ============================================
 let currentDomain = null;
 let domains = [];
-let currentTabId = null;
 let temporaryOverride = null;
 let timerInterval = null;
 let messageTimeout = null;
@@ -60,11 +58,10 @@ export const __testHooks = {
   setState(state) {
     if ('currentDomain' in state) currentDomain = state.currentDomain;
     if ('domains' in state) domains = state.domains;
-    if ('currentTabId' in state) currentTabId = state.currentTabId;
     if ('temporaryOverride' in state) temporaryOverride = state.temporaryOverride;
   },
   getState() {
-    return { currentDomain, domains, currentTabId, temporaryOverride, timerInterval, messageTimeout };
+    return { currentDomain, domains, temporaryOverride, timerInterval, messageTimeout };
   }
 };
 
@@ -117,6 +114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearMessage();
     updateAddButtonState();
   });
+  chrome.storage.onChanged.addListener(handlePopupStorageChange);
 
   // The title bar shows the real running version, never an invented figure.
   if (revisionLabel) {
@@ -133,6 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Clean up timer interval when popup closes
   window.addEventListener('unload', () => {
     stopTimerUpdate();
+    chrome.storage.onChanged.removeListener(handlePopupStorageChange);
   });
 });
 
@@ -145,7 +144,6 @@ async function loadCurrentTab() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.url) {
-      currentTabId = tab.id;
       currentDomain = extractDomain(tab.url);
 
       if (currentDomain) {
@@ -309,10 +307,12 @@ async function handleManualAdd() {
     return;
   }
 
-  await addDomain(domain);
-  domainInput.value = '';
-  clearMessage();
-  updateAddButtonState();
+  const added = await addDomain(domain);
+  if (added) {
+    domainInput.value = '';
+    clearMessage();
+    updateAddButtonState();
+  }
 }
 
 // Handle remove button click
@@ -323,48 +323,44 @@ async function handleRemove(domain) {
 // Add domain to list
 export async function addDomain(domain) {
   try {
-    // Write to storage BEFORE mutating local state so a failed write
-    // doesn't leave a phantom entry in `domains` that disagrees with
-    // what's actually persisted.
-    const updatedDomains = [...domains, domain];
-    await chrome.storage.sync.set({ domains: updatedDomains });
-    domains = updatedDomains;
-
-    // Send message to apply grayscale to all matching tabs
-    await sendMessageToAllTabs('apply', domain);
-
-    // If this is the current tab, send message directly
-    if (domain === currentDomain && currentTabId) {
-      safeSendMessage(currentTabId, { action: 'apply', domain });
+    const response = await sendBackgroundRequest({
+      action: 'setDomainEnabled',
+      domain,
+      enabled: true
+    });
+    if (!Array.isArray(response.domains)) {
+      throw new Error('Background returned an invalid domain snapshot.');
     }
+    domains = response.domains;
 
     updateUI();
+    return true;
   } catch (error) {
     console.error('Error adding domain:', error);
     showError('Failed to add domain.');
+    return false;
   }
 }
 
 // Remove domain from list
 export async function removeDomain(domain) {
   try {
-    // Write to storage BEFORE mutating local state - see addDomain().
-    const updatedDomains = domains.filter((d) => d !== domain);
-    await chrome.storage.sync.set({ domains: updatedDomains });
-    domains = updatedDomains;
-
-    // Send message to remove grayscale from all matching tabs
-    await sendMessageToAllTabs('remove', domain);
-
-    // If this is the current tab, send message directly
-    if (domain === currentDomain && currentTabId) {
-      safeSendMessage(currentTabId, { action: 'remove', domain });
+    const response = await sendBackgroundRequest({
+      action: 'setDomainEnabled',
+      domain,
+      enabled: false
+    });
+    if (!Array.isArray(response.domains)) {
+      throw new Error('Background returned an invalid domain snapshot.');
     }
+    domains = response.domains;
 
     updateUI();
+    return true;
   } catch (error) {
     console.error('Error removing domain:', error);
     showError('Failed to remove domain.');
+    return false;
   }
 }
 
@@ -372,21 +368,33 @@ export async function removeDomain(domain) {
 // CHROME API HELPERS
 // ============================================
 
-// Send message to all tabs with matching domain
-async function sendMessageToAllTabs(action, domain) {
-  try {
-    const tabs = await chrome.tabs.query({});
-    tabs.forEach((tab) => {
-      if (tab.url) {
-        const tabDomain = extractDomain(tab.url);
-        if (tabDomain === domain) {
-          safeSendMessage(tab.id, { action, domain });
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Error sending message to tabs:', error);
+// Chrome resolves runtime.sendMessage for application-level failures when
+// the receiver responds with { success: false }. Convert that response into
+// a rejection so callers never display success for a failed storage write.
+async function sendBackgroundRequest(message) {
+  const response = await chrome.runtime.sendMessage(message);
+  if (!response || response.success !== true) {
+    throw new Error(response?.error || 'Background request failed.');
   }
+  return response;
+}
+
+// Keep an open popup synchronized with storage changes made by another
+// window or by the override-expiration alarm.
+async function handlePopupStorageChange(changes, areaName) {
+  if (areaName !== 'sync') return;
+
+  if (changes.domains) {
+    domains = Array.isArray(changes.domains.newValue)
+      ? changes.domains.newValue
+      : [];
+  }
+
+  if (changes.temporaryOverrides && currentDomain) {
+    await loadTemporaryOverride();
+  }
+
+  updateUI();
 }
 
 // ============================================
@@ -440,7 +448,7 @@ async function loadTemporaryOverride() {
   }
 
   try {
-    const response = await chrome.runtime.sendMessage({
+    const response = await sendBackgroundRequest({
       action: 'getTemporaryOverride',
       domain: currentDomain
     });
@@ -452,7 +460,7 @@ async function loadTemporaryOverride() {
 }
 
 // Handle power button click
-async function handlePowerButton() {
+export async function handlePowerButton() {
   if (!currentDomain) return;
 
   // If override is active, clicking cancels it
@@ -468,7 +476,7 @@ async function handlePowerButton() {
   const durationMs = parseInt(durationSelect.value);
 
   try {
-    await chrome.runtime.sendMessage({
+    await sendBackgroundRequest({
       action: 'setTemporaryOverride',
       domain: currentDomain,
       state: overrideState,
@@ -485,11 +493,11 @@ async function handlePowerButton() {
 }
 
 // Handle cancel override button
-async function handleCancelOverride() {
+export async function handleCancelOverride() {
   if (!currentDomain) return;
 
   try {
-    await chrome.runtime.sendMessage({
+    await sendBackgroundRequest({
       action: 'clearTemporaryOverride',
       domain: currentDomain
     });

@@ -20,6 +20,10 @@ describe('extractDomain', () => {
       expect(extractDomain('https://Example.Com')).toBe('example.com');
     });
 
+    test('accepts an uppercase URL scheme', () => {
+      expect(extractDomain('HTTPS://WWW.EXAMPLE.COM/path')).toBe('example.com');
+    });
+
     test('handles subdomains', () => {
       expect(extractDomain('https://sub.example.com')).toBe('sub.example.com');
       expect(extractDomain('https://www.sub.example.com')).toBe('sub.example.com');
@@ -87,6 +91,15 @@ describe('normalizeDomain', () => {
 
   test('removes protocol and www. together', () => {
     expect(normalizeDomain('https://www.example.com')).toBe('example.com');
+  });
+
+  test('removes uppercase protocol and www. prefixes', () => {
+    expect(normalizeDomain('HTTPS://WWW.EXAMPLE.COM')).toBe('example.com');
+    expect(normalizeDomain('WWW.EXAMPLE.COM')).toBe('example.com');
+  });
+
+  test('trims surrounding whitespace', () => {
+    expect(normalizeDomain('  https://www.example.com/path  ')).toBe('example.com');
   });
 
   test('removes trailing slash and path', () => {

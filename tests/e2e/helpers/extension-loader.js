@@ -1,5 +1,6 @@
 // tests/e2e/helpers/extension-loader.js
 import puppeteer from 'puppeteer';
+import http from 'node:http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -10,6 +11,35 @@ const __dirname = path.dirname(__filename);
 const EXTENSION_PATH = path.resolve(__dirname, '../../..');
 
 let browser = null;
+let testServer = null;
+
+/**
+ * Start a deterministic local page for filter tests so E2E verification does
+ * not depend on external DNS or network availability.
+ * @returns {Promise<string>} Test page URL
+ */
+export async function startTestServer() {
+  testServer = http.createServer((request, response) => {
+    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    response.end('<!doctype html><html><head><title>Filter fixture</title></head><body><main>Color fixture</main></body></html>');
+  });
+
+  await new Promise((resolve, reject) => {
+    testServer.once('error', reject);
+    testServer.listen(0, '127.0.0.1', resolve);
+  });
+  const address = testServer.address();
+  return `http://127.0.0.1:${address.port}`;
+}
+
+/** Close the local E2E fixture server. */
+export async function closeTestServer() {
+  if (!testServer) return;
+  await new Promise((resolve, reject) => {
+    testServer.close((error) => error ? reject(error) : resolve());
+  });
+  testServer = null;
+}
 
 /**
  * Launch Chrome with the extension loaded
@@ -59,6 +89,22 @@ export async function openExtensionPopup(browser, extensionId) {
   const popupPage = await browser.newPage();
   await popupPage.goto(popupUrl, { waitUntil: 'domcontentloaded' });
   return popupPage;
+}
+
+/**
+ * Reload the popup while a website tab is active. DevTools can keep the
+ * popup document open as a test page while Chrome's active-tab query still
+ * resolves to the target website, closely matching an action-popup open.
+ * @param {Page} popupPage - Extension popup test page
+ * @param {Page} targetPage - Website tab that should be considered active
+ */
+export async function syncPopupToActiveTab(popupPage, targetPage) {
+  await targetPage.bringToFront();
+  await popupPage.reload({ waitUntil: 'domcontentloaded' });
+  await popupPage.waitForFunction(() => {
+    const currentDomain = document.getElementById('currentDomain');
+    return currentDomain && currentDomain.textContent !== 'Loading…';
+  });
 }
 
 /**

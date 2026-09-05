@@ -22,9 +22,15 @@ function createFakeStyleElement() {
   };
 }
 
-function createFakeDocument() {
+function createFakeDocument({ headAvailable = true } = {}) {
   const elementsById = new Map();
+  const listeners = new Map();
   let removed = null;
+  const head = {
+    appendChild: (el) => {
+      elementsById.set(el.id, el);
+    },
+  };
 
   return {
     getElementById: (id) => elementsById.get(id) || null,
@@ -36,24 +42,31 @@ function createFakeDocument() {
       };
       return el;
     },
-    head: {
-      appendChild: (el) => {
-        elementsById.set(el.id, el);
-      },
+    head: headAvailable ? head : null,
+    addEventListener: (type, listener) => {
+      const eventListeners = listeners.get(type) || [];
+      eventListeners.push(listener);
+      listeners.set(type, eventListeners);
     },
-    addEventListener: () => {},
     _elementsById: elementsById,
     _wasRemoved: () => removed,
+    _installHead() {
+      this.head = head;
+    },
+    _dispatch(type) {
+      (listeners.get(type) || []).forEach((listener) => listener());
+      listeners.delete(type);
+    },
   };
 }
 
-function createSandbox({ href = 'https://example.com/', storageResult = {} } = {}) {
+function createSandbox({ href = 'https://example.com/', storageResult = {}, headAvailable = true } = {}) {
   const sandbox = {
     URL,
     window: {
       location: { href },
     },
-    document: createFakeDocument(),
+    document: createFakeDocument({ headAvailable }),
     chrome: {
       runtime: {
         id: 'test-extension-id',
@@ -185,5 +198,43 @@ describe('content.js checkAndApplyGrayscale (C2 regression)', () => {
     sandbox.checkAndApplyGrayscale();
 
     expect(sandbox.document.getElementById('grayscale-filter-extension')).toBe(null);
+  });
+
+  test('a remove before DOMContentLoaded cancels a pending style insertion', () => {
+    const { sandbox } = loadContentScript({
+      href: 'https://example.com/',
+      storageResult: { domains: ['example.com'], temporaryOverrides: {} },
+      headAvailable: false,
+    });
+
+    // Initial storage evaluation requested grayscale, but <head> did not yet
+    // exist. A later remove must invalidate that pending insertion.
+    sandbox.removeGrayscale();
+    sandbox.document._installHead();
+    sandbox.document._dispatch('DOMContentLoaded');
+
+    expect(sandbox.document.getElementById('grayscale-filter-extension')).toBe(null);
+  });
+
+  test('a pending apply inserts the style once head becomes available', () => {
+    const { sandbox } = loadContentScript({
+      href: 'https://example.com/',
+      storageResult: { domains: ['example.com'], temporaryOverrides: {} },
+      headAvailable: false,
+    });
+
+    sandbox.document._installHead();
+    sandbox.document._dispatch('DOMContentLoaded');
+
+    expect(sandbox.document.getElementById('grayscale-filter-extension')).not.toBe(null);
+  });
+});
+
+describe('content.js message listener lifecycle', () => {
+  test('does not hold the message port open for an unhandled action', () => {
+    const { sandbox } = loadContentScript();
+    const listener = sandbox.chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+    expect(listener({ action: 'unknown' }, {}, jest.fn())).toBe(false);
   });
 });

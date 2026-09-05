@@ -99,7 +99,7 @@ Invalid entries:
 ### How It Works
 
 1. **Content Script**: Injects a CSS style element that applies `filter: grayscale(100%)` to the `<html>` element
-2. **Background Worker**: Monitors tab updates and applies/removes the filter based on domain matching
+2. **Background Worker**: Serializes domain and override changes, then recalculates every affected tab from the committed storage state
 3. **Storage**: Uses `chrome.storage.sync` to persist your domain list across devices
 4. **Manifest V3**: Built with the latest Chrome Extension standard for better performance and security
 
@@ -205,12 +205,12 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 ## Version History
 
 ### v1.2.0
-- IMPROVED: Redesigned UI with e-reader aesthetic (warm cream, sage accents, Noto Serif typography)
+- IMPROVED: Redesigned UI with the Normal Computer Co. Graphite/Bondi aesthetic and locally bundled Petrona, Martian Mono, and DotGothic16 fonts
 - IMPROVED: Visual hierarchy prioritizes current site actions
 - IMPROVED: Temporary override section more prominent with clear countdown
 - FIXED: Removed unused permissions for Chrome Web Store compliance
 - FIXED: Timer memory leak when popup closes
-- INTERNAL: Comprehensive test coverage (56 unit tests, 13 E2E tests)
+- INTERNAL: Comprehensive automated coverage (125 unit tests, 14 E2E tests) enforced by GitHub Actions
 - INTERNAL: Modular codebase with shared utilities
 
 ### v1.1.0

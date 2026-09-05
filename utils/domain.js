@@ -11,7 +11,7 @@ export function extractDomain(url) {
     const urlObj = new URL(url);
 
     // Skip non-http(s) URLs
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
       return null;
     }
 
@@ -27,6 +27,9 @@ export function extractDomain(url) {
  * @returns {string} - Cleaned domain (lowercase, no protocol/www/path)
  */
 export function normalizeDomain(input) {
+  // Normalize case before stripping case-insensitive URL components.
+  input = input.trim().toLowerCase();
+
   // Remove protocol if present
   input = input.replace(/^(https?:\/\/)?(www\.)?/, '');
 
@@ -42,8 +45,7 @@ export function normalizeDomain(input) {
   // Remove port
   input = input.split(':')[0];
 
-  // Convert to lowercase
-  return input.toLowerCase();
+  return input;
 }
 
 /**
