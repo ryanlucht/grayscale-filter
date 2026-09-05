@@ -8,18 +8,27 @@ import { jest, describe, test, expect, beforeAll, beforeEach, afterEach } from '
 
 function createFakeElement() {
   const classes = new Set();
+  const attrs = {};
   return {
     textContent: '',
     innerHTML: '',
     style: {},
     disabled: false,
+    hidden: false,
     className: '',
     value: '',
     appendChild: () => {},
     addEventListener: () => {},
+    setAttribute: (name, value) => { attrs[name] = value; },
+    getAttribute: (name) => (name in attrs ? attrs[name] : null),
     classList: {
       add: (...c) => c.forEach((x) => classes.add(x)),
       remove: (...c) => c.forEach((x) => classes.delete(x)),
+      toggle: (c, force) => {
+        const shouldHave = force === undefined ? !classes.has(c) : force;
+        if (shouldHave) classes.add(c); else classes.delete(c);
+        return shouldHave;
+      },
       contains: (c) => classes.has(c),
     },
   };
@@ -38,9 +47,15 @@ function makeDomRefs() {
     overrideBanner: createFakeElement(),
     overrideStatusText: createFakeElement(),
     powerButton: createFakeElement(),
-    durationSelect: { value: '900000' },
+    durationSelect: { value: '900000', disabled: false },
     cancelOverride: createFakeElement(),
     timerDisplay: createFakeElement(),
+    overrideProgress: createFakeElement(),
+    currentSiteAside: createFakeElement(),
+    currentSiteDot: createFakeElement(),
+    overrideAside: createFakeElement(),
+    domainCountAside: createFakeElement(),
+    revisionLabel: createFakeElement(),
   };
 }
 
@@ -178,15 +193,17 @@ describe('popup.js #errorMessage messaging (C7 regression)', () => {
     expect(refs.errorMessage.textContent).toBe('');
   });
 
-  test('showSuccessMessage sets the green inline-style fallback', () => {
+  test('showSuccessMessage applies the .success class (popup.css owns the color, not an inline style)', () => {
     popup.showSuccessMessage('color', 1800000);
-    expect(refs.errorMessage.style.color).toBe('#10b981');
+    expect(refs.errorMessage.classList.contains('success')).toBe(true);
+    expect(refs.errorMessage.classList.contains('error')).toBe(false);
     expect(refs.errorMessage.textContent).toContain('Color override active');
   });
 
-  test('showError does not apply the success color', () => {
+  test('showError applies the .error class, not .success', () => {
     popup.showError('Invalid domain format');
-    expect(refs.errorMessage.style.color).toBe('');
+    expect(refs.errorMessage.classList.contains('error')).toBe(true);
+    expect(refs.errorMessage.classList.contains('success')).toBe(false);
   });
 
   test('message auto-clears after 3 seconds', () => {

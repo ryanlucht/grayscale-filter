@@ -187,8 +187,15 @@ describe('Grayscale Filter Extension E2E', () => {
     }, 5000);
 
     test('rejects empty input', async () => {
-      // Click add with empty input
-      await popupPage.click('#addButton');
+      // The re-skinned #addButton is disabled while the input is empty
+      // (design: disabled={!draft.trim()}), so a click on it is a no-op.
+      const isDisabled = await popupPage.$eval('#addButton', el => el.disabled);
+      expect(isDisabled).toBe(true);
+
+      // The Enter-key path isn't gated by the disabled button, and still
+      // has to surface handleManualAdd's own empty-input guard.
+      await popupPage.focus('#domainInput');
+      await popupPage.keyboard.press('Enter');
 
       await new Promise(r => setTimeout(r, 300));
 

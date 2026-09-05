@@ -1,338 +1,750 @@
-/* popup.css - E-reader aesthetic styling for Grayscale Filter extension */
+/* popup.css - Normal Computer Co. re-skin for the Grayscale Filter popup.
+   Flavor: Graphite ("the only product allowed to have no color at all").
+   Bondi (the company color) is used for the override banner - the one
+   flavor Bondi is permitted to sit with.
 
+   Tokens below are copied (not @imported) from the design system's
+   tokens/{colors,effects,spacing,typography}.css - only the subset this
+   popup actually uses. See popup/fonts/ for the locally bundled webfonts. */
+
+/* ============================================
+   FONTS - bundled locally, never fetched remotely.
+   Petrona and Martian Mono ship as variable fonts; a single @font-face per
+   family/style with a font-weight RANGE lets the browser interpolate the
+   exact weight requested (400/500/600) from one file. DotGothic16 is a
+   single static weight (400).
+   ============================================ */
+@font-face {
+  font-family: 'Petrona';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('fonts/petrona-regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Petrona';
+  font-style: italic;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('fonts/petrona-italic.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Martian Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('fonts/martian-mono.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DotGothic16';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/dotgothic16.woff2') format('woff2');
+}
+
+/* ============================================
+   TOKENS (subset actually used by this popup)
+   ============================================ */
+:root {
+  /* --- Paper stack (the frame) --- */
+  --paper: #F4F1E8;
+  --card: #FCFAF4;
+  --white: #FFFFFF;
+  --putty: #E4DCC9;
+  --ink: #15171D;
+
+  /* --- Rules --- */
+  --rule: #D6CEBB;
+  --rule-soft: #E7E0CF;
+  --rule-faint: #F0EADB;
+  --rule-putty: #B9AF97;
+
+  /* --- Text --- */
+  --text-1: #15171D;
+  --text-2: #45423A;
+  --text-3: #8A8172;
+  --text-alert: #A8442F;
+
+  /* --- Bondi (the company color - half the brand) --- */
+  --bondi: #0E8FA8;
+  --bondi-bright: #29B0C9;
+  --bondi-light: #43C0D6;
+  --bondi-deep: #0A6E83;
+  --bondi-dark: #054E5E;
+  --bondi-pale: #EAFBFF;
+
+  /* --- Graphite (this product's one flavor) --- */
+  --flavor-graphite-lo: #454951;
+
+  /* --- Semantic aliases --- */
+  --border-default: var(--rule);
+  --border-window: var(--rule-putty);
+  --surface-card: var(--card);
+
+  /* --- Gel (light from below, highlight across the upper third) --- */
+  --gel-beige: linear-gradient(180deg, #FCFAF4 0%, #E4DCC9 48%, #D2C8B0 52%, #F2ECDF 100%);
+  --gel-graphite: linear-gradient(178deg, #9096A0 0%, #6A6E76 46%, #454951 56%, #7D838C 100%);
+  --gel-round-graphite: radial-gradient(circle at 50% 120%, #9096A0 0%, #6A6E76 38%, #454951 62%, #7D838C 100%);
+  --gel-round-snow: radial-gradient(circle at 50% 120%, #FFFFFF 0%, #E9EDF0 38%, #C3CBD2 62%, #F4F7F9 100%);
+  --gel-highlight: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.04));
+  --gel-inner-edge: inset 0 0 0 1px rgba(255,255,255,0.35);
+
+  /* --- Depth: two systems, never mixed inside one control --- */
+  --bevel-out: inset 1px 1px 0 #FFFFFF, inset -1px -1px 0 #A79C82;
+  --bevel-in: inset 1px 1px 0 #C9BC9C;
+  --shadow-drop: 0 2px 3px rgba(21,23,29,0.28);
+  --shadow-drop-lg: 0 2px 4px rgba(21,23,29,0.25);
+
+  /* --- Textures --- */
+  --texture-dither-ink: repeating-conic-gradient(from 0deg at 50% 50%, #15171D 0% 25%, transparent 0% 50%);
+  --texture-dither-size: 4px 4px;
+  --texture-pinstripe: repeating-linear-gradient(90deg, rgba(14,143,168,0.18) 0 1px, transparent 1px 4px);
+  --texture-scanline: repeating-linear-gradient(0deg, rgba(255,255,255,0.14) 0 1px, transparent 1px 4px);
+
+  /* --- Motion: progress ticks, it never glides --- */
+  --duration-tick: 120ms;
+  --duration-fade: 180ms;
+  --ease-tick: steps(6, end);
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --progress-block: 14px;
+  --progress-gap: 2px;
+
+  /* --- Type --- */
+  --font-serif: 'Petrona', Georgia, 'Times New Roman', serif;
+  --font-mono: 'Martian Mono', ui-monospace, 'Courier New', monospace;
+  --font-bitmap: 'DotGothic16', 'Martian Mono', monospace;
+
+  /* --- Surfaces --- */
+  --radius-1: 2px;
+  --radius-round: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-tick: 0ms;
+    --duration-fade: 0ms;
+  }
+}
+
+/* ============================================
+   BASE
+   ============================================ */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-:root {
-  /* E-reader color palette */
-  --bg-cream: #FAF9F6;
-  --text-charcoal: #2C2C2C;
-  --text-secondary: #6B6B6B;
-  --border-light: #E0E0E0;
-
-  /* Sage green accents (zen, nature-inspired) */
-  --accent-sage: #8B9B7E;
-  --accent-sage-light: #A8B89E;
-  --accent-sage-dark: #6E8066;
-
-  /* Utility colors */
-  --active-green: #10b981;
-  --active-green-hover: #059669;
-  --danger-red: #C17B7B;
-  --danger-red-hover: #A86B6B;
-  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+html, body {
+  margin: 0;
 }
 
 body {
-  width: 350px;
-  font-family: 'Noto Serif', Georgia, 'Times New Roman', serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 16px;
+  width: 348px;
+  font-family: var(--font-serif);
+  font-size: 15px;
   line-height: 1.5;
-  color: var(--text-charcoal);
-  background: var(--bg-cream);
+  color: var(--text-1);
+  background: var(--paper);
 }
 
-.container {
-  padding: 0;
+button {
+  font: inherit;
 }
 
-/* ===== SECTION BASE STYLES ===== */
+/* A 2px ink outline, offset 2px - not a glow. Every interactive element
+   gets one; the default browser ring is suppressed in favor of this. */
+button:focus,
+input:focus,
+select:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   WINDOW - the popup viewport itself is the frame.
+   ============================================ */
+.window {
+  width: 348px;
+  border: 1px solid var(--border-window);
+  background: var(--card);
+  box-shadow: var(--shadow-drop-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== TITLE BAR ===== */
+.titlebar {
+  flex: none;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background-color: var(--white);
+  background-image: var(--texture-pinstripe);
+  border-bottom: 1px solid var(--border-window);
+}
+
+.bead {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  background: var(--gel-round-graphite);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bead-highlight {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  right: 3px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gel-highlight);
+}
+
+.bead-mark {
+  position: relative;
+  font-family: var(--font-serif);
+  font-weight: 500;
+  color: var(--white);
+  font-size: 8px;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.bead-mark-o {
+  font-family: var(--font-bitmap);
+  font-size: 0.8em;
+}
+
+.titlebar-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.titlebar-rev {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+/* ===== OVERRIDE BANNER ===== */
+.override-banner {
+  flex: none;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: var(--bondi);
+  background-image: var(--texture-scanline);
+  border-bottom: 1px solid var(--bondi-dark);
+}
+
+.override-banner-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.override-banner-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.override-banner-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bondi-pale);
+}
+
+.override-banner-timer {
+  font-family: var(--font-bitmap);
+  font-size: 24px;
+  line-height: 30px;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== TICK PROGRESS ===== */
+.tick-progress {
+  height: 22px;
+  width: 100%;
+  padding: 3px;
+  display: flex;
+  gap: var(--progress-gap);
+  box-sizing: border-box;
+  border: 1px solid var(--text-3);
+  background: var(--white);
+  box-shadow: var(--bevel-in);
+}
+
+.tick-progress--deep {
+  border-color: var(--bondi-bright);
+  background: rgba(10, 110, 131, 0.35);
+  box-shadow: none;
+}
+
+.tick-progress[hidden] {
+  display: none;
+}
+
+.tick-progress .tick-block {
+  width: var(--progress-block);
+  flex: none;
+  background: transparent;
+}
+
+.tick-progress .tick-block--filled {
+  background: var(--bondi-light);
+}
+
+/* ===== SECTIONS ===== */
 .section {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--rule-soft);
 }
 
 .section:last-child {
   border-bottom: none;
 }
 
-.section-heading {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-}
-
-/* ===== OVERRIDE BANNER ===== */
-.override-banner {
-  background: var(--accent-sage-light);
+.section-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  gap: 8px;
 }
 
-.override-status {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.section-head-num {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bondi);
 }
 
-.timer {
-  font-size: 18px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-charcoal);
+.section-head-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-2);
 }
 
-/* ===== CURRENT SITE SECTION ===== */
-.current-site-section {
-  background: var(--bg-cream);
+.section-head-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--rule-soft);
 }
 
-.current-domain {
+.section-head-aside {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.section-copy {
+  margin: 0;
   font-size: 14px;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-  text-align: center;
+  line-height: 21px;
+  color: var(--text-2);
 }
 
-/* ===== TEMPORARY OVERRIDE SECTION ===== */
-.override-section {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-light);
+/* ===== CURRENT SITE READOUT ===== */
+.readout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--putty);
+  box-shadow: var(--bevel-in);
+  border: 1px solid var(--border-window);
 }
 
-.override-heading {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-  text-align: center;
+.readout-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--bondi);
 }
 
-.override-helper {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-  text-align: center;
-  font-style: italic;
-  opacity: 0.8;
+.readout-dot.is-filtered {
+  background: var(--flavor-graphite-lo);
 }
 
+.readout-text {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== BUTTONS (gel, per Button component) ===== */
+.btn {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  border-radius: var(--radius-round);
+  padding: 11px 24px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: filter var(--duration-fade) var(--ease-standard);
+  box-shadow: var(--gel-inner-edge), var(--shadow-drop);
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 8px;
+  right: 8px;
+  height: 13px;
+  border-radius: var(--radius-round);
+  background: var(--gel-highlight);
+  pointer-events: none;
+}
+
+.btn > * {
+  position: relative;
+}
+
+.btn--sm {
+  padding: 8px 16px;
+  font-size: 9px;
+}
+
+.btn--sm::before {
+  height: 10px;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--graphite {
+  background: var(--gel-graphite);
+  color: var(--white);
+}
+
+.btn--secondary {
+  background: var(--gel-beige);
+  color: var(--text-2);
+}
+
+.btn--secondary.btn--alert {
+  color: var(--text-alert);
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn:active:not(:disabled) {
+  filter: brightness(0.9);
+  box-shadow: var(--gel-inner-edge), inset 0 1px 3px rgba(21, 23, 29, 0.45);
+}
+
+.btn:active:not(:disabled)::before {
+  display: none;
+}
+
+.btn:disabled {
+  background: var(--putty);
+  color: var(--text-3);
+  box-shadow: none;
+  cursor: default;
+}
+
+.btn:disabled::before {
+  display: none;
+}
+
+/* ===== POWER BUTTON (gel round, per PowerButton) ===== */
+.power-button {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--gel-round-snow);
+  box-shadow: var(--gel-inner-edge), var(--shadow-drop);
+  transition: filter var(--duration-fade) var(--ease-standard);
+}
+
+.power-button-highlight {
+  position: absolute;
+  top: 4px;
+  left: 11px;
+  right: 11px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gel-highlight);
+}
+
+.power-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.power-button:active:not(:disabled) {
+  filter: brightness(0.9);
+  box-shadow: var(--gel-inner-edge), inset 0 2px 4px rgba(21, 23, 29, 0.45);
+}
+
+.power-button:active:not(:disabled) .power-button-highlight {
+  display: none;
+}
+
+.power-button:disabled {
+  cursor: default;
+  filter: none;
+  background: var(--putty);
+  box-shadow: none;
+}
+
+.power-button:disabled .power-button-highlight {
+  display: none;
+}
+
+.power-button:disabled .power-icon-ring,
+.power-button:disabled .power-icon-stem {
+  border-color: var(--text-3);
+  background: var(--text-3);
+}
+
+.power-button.active {
+  background: var(--gel-round-graphite);
+}
+
+.power-icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.power-icon-ring {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--flavor-graphite-lo);
+  clip-path: polygon(0 22%, 34% 22%, 34% 0, 66% 0, 66% 22%, 100% 22%, 100% 100%, 0 100%);
+}
+
+.power-icon-stem {
+  position: absolute;
+  left: calc(50% - 1px);
+  top: calc(50% - 12px);
+  width: 2px;
+  height: 11px;
+  background: var(--flavor-graphite-lo);
+}
+
+.power-button.active .power-icon-ring,
+.power-button.active .power-icon-stem {
+  border-color: var(--white);
+  background: var(--white);
+}
+
+/* ===== OVERRIDE CONTROLS ===== */
 .override-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 16px;
 }
 
-.btn-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  border: 2px solid var(--accent-sage-light);
-  background: rgba(139, 155, 126, 0.08);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  color: var(--accent-sage);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-}
-
-.btn-icon:hover {
-  border-color: var(--accent-sage);
-  background: rgba(139, 155, 126, 0.15);
-  color: var(--accent-sage-dark);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
-  transform: scale(1.05);
-}
-
-.btn-icon.active {
-  border-color: var(--accent-sage);
-  background: var(--accent-sage-light);
-  color: var(--accent-sage-dark);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
-}
-
-.power-icon {
-  width: 28px;
-  height: 28px;
-}
-
-.duration-select {
-  padding: 8px 12px;
-  font-size: 14px;
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  background: var(--bg-cream);
-  color: var(--text-charcoal);
+/* ===== SELECT (per Select component) ===== */
+.select {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-1);
+  padding: 7px 9px;
+  background: var(--gel-beige);
+  border: 1px solid var(--border-window);
+  border-radius: var(--radius-1);
+  box-shadow: var(--bevel-out);
+  appearance: none;
   cursor: pointer;
 }
 
-.duration-select:focus {
-  outline: none;
-  border-color: var(--accent-sage);
+.select:disabled {
+  background: var(--putty);
+  color: var(--text-3);
+  cursor: default;
 }
 
-/* ===== BUTTON STYLES (unified) ===== */
-.btn-primary {
-  width: 100%;
-  padding: 12px 16px;
-  font-size: 16px;
-  font-weight: 600;
-  color: white;
-  background: var(--accent-sage);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.btn-primary:hover {
-  background: var(--accent-sage-dark);
-}
-
-.btn-primary.active {
-  background: var(--danger-red);
-}
-
-.btn-primary.active:hover {
-  background: var(--danger-red-hover);
-}
-
-.btn-secondary {
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-charcoal);
-  background: white;
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-  background: var(--bg-cream);
-  border-color: var(--text-secondary);
-}
-
-/* ===== INPUT STYLING ===== */
+/* ===== INPUT (per Input component, mono variant) ===== */
 .input {
   width: 100%;
-  padding: 10px 12px;
-  font-size: 14px;
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  margin-bottom: 10px;
-  background: white;
-  color: var(--text-charcoal);
+  font: inherit;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--text-1);
+  padding: 7px 9px;
+  background: var(--white);
+  border: 1px solid var(--text-3);
+  border-radius: var(--radius-1);
+  box-shadow: var(--bevel-in);
 }
 
-.input:focus {
-  outline: none;
-  border-color: var(--accent-sage);
+.input--mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 .input::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-3);
 }
 
-.error-message {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--danger-red);
+.input:disabled {
+  background: var(--putty);
+}
+
+/* ===== MESSAGE (#errorMessage - shared by error/success notices) =====
+   A message is a sentence, not a label, so it stays in the serif per
+   DESIGN-RULES.md ("if a label needs a verb ... it goes in the serif"). */
+.message {
   min-height: 16px;
+  font-family: var(--font-serif);
+  font-size: 12px;
+  line-height: 16px;
 }
 
-/* ===== DOMAIN LIST ===== */
+.message.error {
+  color: var(--text-alert);
+}
+
+/* No dedicated "success green" exists in this palette - Bondi (the brand
+   color) reads as the deliberate affirmative here instead of inventing a
+   color outside the system. */
+.message.success {
+  color: var(--bondi-deep);
+}
+
+/* ===== DOMAIN LIST (section 04) ===== */
 .domain-list {
-  max-height: 200px; /* ~5-6 items visible */
+  max-height: 200px;
   overflow-y: auto;
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
 }
 
-/* Custom scrollbar */
+.domain-list:empty {
+  display: none;
+}
+
 .domain-list::-webkit-scrollbar {
   width: 8px;
 }
 
 .domain-list::-webkit-scrollbar-track {
-  background: var(--bg-cream);
-  border-radius: 4px;
+  background: var(--paper);
 }
 
 .domain-list::-webkit-scrollbar-thumb {
-  background: var(--border-light);
-  border-radius: 4px;
-}
-
-.domain-list::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-sage-light);
+  background: var(--rule-putty);
 }
 
 .domain-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-radius: 6px;
-  margin-bottom: 6px;
-  background: rgba(0, 0, 0, 0.02);
-  transition: background 0.2s ease;
+  gap: 8px;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--rule-faint);
+  background: transparent;
+}
+
+.domain-item:last-child {
+  border-bottom: none;
 }
 
 .domain-item:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--paper);
 }
 
 .domain-name {
-  font-size: 14px;
-  color: var(--text-charcoal);
-  font-weight: 500;
   flex: 1;
-  word-break: break-all;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .remove-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
-  background: var(--danger-red);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-alert);
+  background: transparent;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-left: 10px;
-  flex-shrink: 0;
+  padding: 2px 0;
+  text-decoration: none;
 }
 
 .remove-btn:hover {
-  background: var(--danger-red-hover);
-  transform: scale(1.05);
+  text-decoration: underline;
 }
 
+/* ===== EMPTY STATE ===== */
 .empty-state {
-  text-align: center;
-  padding: 30px 20px;
-  color: var(--text-secondary);
-  font-size: 14px;
   display: none;
+  padding: 20px 10px;
+  text-align: center;
+  border: 1px solid var(--rule-soft);
+  background-color: var(--paper);
+  background-image: var(--texture-dither-ink);
+  background-size: var(--texture-dither-size);
 }
 
 .empty-state.visible {
   display: block;
 }
 
-/* ===== ANIMATIONS ===== */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.domain-item {
-  animation: fadeIn 0.3s ease;
+.empty-state span {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text-2);
+  background: var(--paper);
+  padding: 2px 8px;
 }

@@ -92,7 +92,13 @@ export async function handleTemporaryOverride(domain, state, durationMs) {
     temporaryOverrides[domain] = {
       state: state,
       expiresAt: Date.now() + durationMs,
-      originallyInList: domains.includes(domain)
+      originallyInList: domains.includes(domain),
+      // Stored so the popup can render a progress bar (remaining / total)
+      // without re-deriving "total" from anything but the source of truth.
+      // An override written by a previous version of this extension won't
+      // have this field - callers must treat a missing durationMs as
+      // "can't render a ratio" rather than computing NaN.
+      durationMs: durationMs
     };
 
     // storage.onChanged fans this out to all tabs - no manual tab loop needed.
@@ -197,7 +203,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           active: true,
           state: override.state,
           expiresAt: override.expiresAt,
-          remainingMs: override.expiresAt - Date.now()
+          remainingMs: override.expiresAt - Date.now(),
+          // May be undefined for an override written before durationMs
+          // existed (already sitting in chrome.storage.sync) - the popup
+          // is responsible for handling that gracefully.
+          durationMs: override.durationMs
         });
       } else {
         sendResponse({ active: false });

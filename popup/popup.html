@@ -7,56 +7,94 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="container">
+  <div class="window">
+    <!-- Title bar -->
+    <div class="titlebar">
+      <span class="bead" aria-hidden="true">
+        <span class="bead-highlight"></span>
+        <span class="bead-mark">N<span class="bead-mark-o">o</span></span>
+      </span>
+      <span class="titlebar-label">Grayscale Filter</span>
+      <span class="titlebar-rev" id="revisionLabel">Rev &mdash;</span>
+    </div>
+
     <!-- Override Banner (hidden when inactive) -->
-    <div id="overrideBanner" class="section override-banner" style="display: none;">
-      <div class="override-status">
-        <span id="overrideStatusText">Grayscale Override Active</span>
-        <span id="timerDisplay" class="timer">--:--</span>
-      </div>
-      <button id="cancelOverride" class="btn-secondary">Cancel</button>
-    </div>
-
-    <!-- Current Site Section -->
-    <div class="section current-site-section">
-      <h2 class="section-heading">Current Site</h2>
-      <div id="currentDomain" class="current-domain">Loading...</div>
-      <button id="toggleButton" class="btn-primary">
-        <span id="toggleText">Add to Grayscale</span>
-      </button>
-      <!-- Temporary Override Section -->
-      <div class="override-section">
-        <h3 class="override-heading">temporary override</h3>
-        <p class="override-helper">Quickly override grayscale for this site</p>
-        <div class="override-controls">
-          <button id="powerButton" class="btn-icon" title="Temporary override">
-            <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M12 2v10M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-            </svg>
-          </button>
-          <select id="durationSelect" class="duration-select">
-            <option value="900000">15 min</option>
-            <option value="1800000" selected>30 min</option>
-            <option value="3600000">1 hour</option>
-            <option value="86400000">1 day</option>
-          </select>
+    <div id="overrideBanner" class="override-banner" style="display: none;">
+      <div class="override-banner-row">
+        <div class="override-banner-info">
+          <div id="overrideStatusText" class="override-banner-label">Grayscale override active</div>
+          <div id="timerDisplay" class="override-banner-timer">--:--</div>
         </div>
+        <button id="cancelOverride" class="btn btn--secondary btn--sm">Cancel</button>
+      </div>
+      <div id="overrideProgress" class="tick-progress tick-progress--deep"></div>
+    </div>
+
+    <!-- 01 - Current Site -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-head-num">01</span>
+        <span class="section-head-label">Current site</span>
+        <span class="section-head-rule"></span>
+        <span class="section-head-aside" id="currentSiteAside">in color</span>
+      </div>
+      <div class="readout">
+        <span class="readout-dot" id="currentSiteDot"></span>
+        <span id="currentDomain" class="readout-text">Loading&hellip;</span>
+      </div>
+      <button id="toggleButton" class="btn btn--graphite btn--block">
+        <span id="toggleText">Add to grayscale</span>
+      </button>
+    </div>
+
+    <!-- 02 - Temporary Override -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-head-num">02</span>
+        <span class="section-head-label">Temporary override</span>
+        <span class="section-head-rule"></span>
+        <span class="section-head-aside" id="overrideAside">idle</span>
+      </div>
+      <p class="section-copy">Quickly override grayscale for this site. Color returns to normal until the clock runs out.</p>
+      <div class="override-controls">
+        <button id="powerButton" class="power-button" aria-label="Start override">
+          <span class="power-button-highlight"></span>
+          <span class="power-icon">
+            <span class="power-icon-ring"></span>
+            <span class="power-icon-stem"></span>
+          </span>
+        </button>
+        <select id="durationSelect" class="select">
+          <option value="900000">15 min</option>
+          <option value="1800000" selected>30 min</option>
+          <option value="3600000">1 hour</option>
+          <option value="86400000">1 day</option>
+        </select>
       </div>
     </div>
 
-    <!-- Manual Entry Section -->
-    <div class="section manual-entry-section">
-      <h2 class="section-heading">Add Domain</h2>
-      <input type="text" id="domainInput" class="input" placeholder="example.com" aria-label="Enter domain name">
-      <button id="addButton" class="btn-primary">Add Domain</button>
-      <div id="errorMessage" class="error-message"></div>
+    <!-- 03 - Add Domain -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-head-num">03</span>
+        <span class="section-head-label">Add domain</span>
+        <span class="section-head-rule"></span>
+      </div>
+      <input type="text" id="domainInput" class="input input--mono" placeholder="example.com" aria-label="Enter domain name">
+      <button id="addButton" class="btn btn--graphite btn--block" disabled>Add domain</button>
+      <div id="errorMessage" class="message" role="status"></div>
     </div>
 
-    <!-- Domain List Section -->
-    <div class="section domain-list-section">
-      <h2 class="section-heading">Grayscaled Websites</h2>
+    <!-- 04 - Grayscaled Websites -->
+    <div class="section section--list">
+      <div class="section-head">
+        <span class="section-head-num">04</span>
+        <span class="section-head-label">Grayscaled websites</span>
+        <span class="section-head-rule"></span>
+        <span class="section-head-aside" id="domainCountAside">0 domains</span>
+      </div>
       <div id="domainList" class="domain-list"></div>
-      <div id="emptyState" class="empty-state">No domains added yet</div>
+      <div id="emptyState" class="empty-state"><span>No domains added yet</span></div>
     </div>
   </div>
   <script type="module" src="popup.js"></script>

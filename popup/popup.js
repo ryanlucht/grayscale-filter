@@ -21,6 +21,15 @@ let powerButton;
 let durationSelect;
 let cancelOverride;
 let timerDisplay;
+let overrideProgress;
+
+// Re-skin: dynamic section asides + title bar revision (not part of the
+// original 14-id contract; harmless if absent, guarded at every call site).
+let currentSiteAside;
+let currentSiteDot;
+let overrideAside;
+let domainCountAside;
+let revisionLabel;
 
 // ============================================
 // STATE VARIABLES
@@ -44,7 +53,8 @@ export const __testHooks = {
     ({
       currentDomainEl, toggleButton, toggleText, domainInput, addButton,
       domainList, emptyState, errorMessage, overrideBanner, overrideStatusText,
-      powerButton, durationSelect, cancelOverride, timerDisplay
+      powerButton, durationSelect, cancelOverride, timerDisplay, overrideProgress,
+      currentSiteAside, currentSiteDot, overrideAside, domainCountAside, revisionLabel
     } = refs);
   },
   setState(state) {
@@ -81,6 +91,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   durationSelect = document.getElementById('durationSelect');
   cancelOverride = document.getElementById('cancelOverride');
   timerDisplay = document.getElementById('timerDisplay');
+  overrideProgress = document.getElementById('overrideProgress');
+
+  // Re-skin: dynamic section asides + title bar revision
+  currentSiteAside = document.getElementById('currentSiteAside');
+  currentSiteDot = document.getElementById('currentSiteDot');
+  overrideAside = document.getElementById('overrideAside');
+  domainCountAside = document.getElementById('domainCountAside');
+  revisionLabel = document.getElementById('revisionLabel');
 
   // Set up event listeners
   toggleButton.addEventListener('click', handleToggle);
@@ -93,12 +111,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   powerButton.addEventListener('click', handlePowerButton);
   cancelOverride.addEventListener('click', handleCancelOverride);
 
-  // Clear error message when user types
+  // Clear error message when user types, and re-evaluate whether #addButton
+  // should be enabled (disabled while the trimmed input is empty).
   domainInput.addEventListener('input', () => {
     clearMessage();
+    updateAddButtonState();
   });
 
+  // The title bar shows the real running version, never an invented figure.
+  if (revisionLabel) {
+    revisionLabel.textContent = `Rev ${chrome.runtime.getManifest().version}`;
+  }
+
   // Initialize
+  updateAddButtonState();
   await loadCurrentTab();
   await loadDomains();
   await loadTemporaryOverride();
@@ -123,7 +149,9 @@ async function loadCurrentTab() {
       currentDomain = extractDomain(tab.url);
 
       if (currentDomain) {
-        currentDomainEl.textContent = `Current site: ${currentDomain}`;
+        // The section head ("01 - Current site") already carries the label,
+        // so the readout itself is just the domain.
+        currentDomainEl.textContent = currentDomain;
         toggleButton.disabled = false;
       } else {
         currentDomainEl.textContent = 'Not a valid website';
@@ -172,7 +200,9 @@ function updateToggleButton() {
   if (!currentDomain) {
     toggleButton.disabled = true;
     toggleText.textContent = 'No valid site';
-    toggleButton.className = 'btn-primary';
+    toggleButton.className = 'btn btn--graphite btn--block';
+    if (currentSiteAside) currentSiteAside.textContent = 'in color';
+    if (currentSiteDot) currentSiteDot.classList.remove('is-filtered');
     return;
   }
 
@@ -180,19 +210,33 @@ function updateToggleButton() {
 
   if (isActive) {
     // Domain is in grayscale list - button removes it
-    toggleButton.className = 'btn-primary active';
-    toggleText.textContent = 'Remove from Grayscale';
+    toggleButton.className = 'btn btn--secondary btn--alert btn--block';
+    toggleText.textContent = 'Remove from grayscale';
   } else {
     // Domain not in list - button adds it
-    toggleButton.className = 'btn-primary';
-    toggleText.textContent = 'Add to Grayscale';
+    toggleButton.className = 'btn btn--graphite btn--block';
+    toggleText.textContent = 'Add to grayscale';
   }
+
+  if (currentSiteAside) currentSiteAside.textContent = isActive ? 'filtered' : 'in color';
+  if (currentSiteDot) currentSiteDot.classList.toggle('is-filtered', isActive);
+}
+
+// Enable/disable #addButton based on whether there's non-whitespace input.
+// The Enter-key path (handleManualAdd's own guard) stays reachable even
+// while the button is disabled - only the click affordance is gated.
+function updateAddButtonState() {
+  addButton.disabled = domainInput.value.trim().length === 0;
 }
 
 // Render the domain list
 function renderDomainList() {
   // Clear current list
   domainList.innerHTML = '';
+
+  if (domainCountAside) {
+    domainCountAside.textContent = `${domains.length} ${domains.length === 1 ? 'domain' : 'domains'}`;
+  }
 
   if (domains.length === 0) {
     emptyState.classList.add('visible');
@@ -216,6 +260,7 @@ function renderDomainList() {
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
     removeBtn.textContent = 'Remove';
+    removeBtn.setAttribute('aria-label', `Remove ${domain}`);
     removeBtn.addEventListener('click', () => handleRemove(domain));
 
     item.appendChild(nameEl);
@@ -248,25 +293,26 @@ async function handleManualAdd() {
   const input = domainInput.value.trim();
 
   if (!input) {
-    showError('Please enter a domain');
+    showError('Please enter a domain.');
     return;
   }
 
   const domain = normalizeDomain(input);
 
   if (!isValidDomain(domain)) {
-    showError('Invalid domain format');
+    showError('Invalid domain format.');
     return;
   }
 
   if (domains.includes(domain)) {
-    showError('Domain already in list');
+    showError('Domain already in list.');
     return;
   }
 
   await addDomain(domain);
   domainInput.value = '';
   clearMessage();
+  updateAddButtonState();
 }
 
 // Handle remove button click
@@ -295,7 +341,7 @@ export async function addDomain(domain) {
     updateUI();
   } catch (error) {
     console.error('Error adding domain:', error);
-    showError('Failed to add domain');
+    showError('Failed to add domain.');
   }
 }
 
@@ -318,7 +364,7 @@ export async function removeDomain(domain) {
     updateUI();
   } catch (error) {
     console.error('Error removing domain:', error);
-    showError('Failed to remove domain');
+    showError('Failed to remove domain.');
   }
 }
 
@@ -371,12 +417,6 @@ export function showMessage(text, kind) {
   errorMessage.textContent = text;
   errorMessage.classList.remove('success', 'error');
   errorMessage.classList.add(kind);
-
-  // TODO(re-skin): popup.css has no `.success`/`.error` rule yet (that's
-  // owned by a separate re-skin task). Keep this inline-style fallback for
-  // the success case so the UI doesn't regress in the meantime; remove once
-  // popup.css defines `.success`.
-  errorMessage.style.color = kind === 'success' ? '#10b981' : '';
 
   messageTimeout = setTimeout(() => {
     clearMessage();
@@ -440,7 +480,7 @@ async function handlePowerButton() {
     showSuccessMessage(overrideState, durationMs);
   } catch (error) {
     console.error('Error setting temporary override:', error);
-    showError('Failed to set temporary override');
+    showError('Failed to set temporary override.');
   }
 }
 
@@ -458,7 +498,39 @@ async function handleCancelOverride() {
     updateTemporaryUI();
   } catch (error) {
     console.error('Error clearing temporary override:', error);
-    showError('Failed to cancel override');
+    showError('Failed to cancel override.');
+  }
+}
+
+// Number of discrete blocks in the override banner's tick-progress bar
+// (DESIGN-RULES.md: "progress is discrete blocks ... it ticks, it never
+// glides"). Matches the composition's <TickProgress blocks={16} deep />.
+const TICK_BLOCKS = 16;
+
+// Render the override banner's tick-progress bar from the current
+// temporaryOverride. Gap: a temporaryOverride written by a previous version
+// of this extension (already sitting in chrome.storage.sync) has no
+// durationMs, so there's no "total" to divide by - hide the bar rather
+// than render NaN/garbage blocks.
+function renderProgressBar() {
+  if (!overrideProgress) return;
+
+  if (!temporaryOverride || !temporaryOverride.active || !temporaryOverride.durationMs) {
+    overrideProgress.hidden = true;
+    overrideProgress.innerHTML = '';
+    return;
+  }
+
+  const remainingMs = Math.max(0, temporaryOverride.expiresAt - Date.now());
+  const ratio = Math.min(1, remainingMs / temporaryOverride.durationMs);
+  const filled = Math.round(ratio * TICK_BLOCKS);
+
+  overrideProgress.hidden = false;
+  overrideProgress.innerHTML = '';
+  for (let i = 0; i < TICK_BLOCKS; i++) {
+    const block = document.createElement('span');
+    block.className = i < filled ? 'tick-block tick-block--filled' : 'tick-block';
+    overrideProgress.appendChild(block);
   }
 }
 
@@ -468,6 +540,9 @@ export function updateTemporaryUI() {
     // No valid domain - hide banner, disable power button
     overrideBanner.style.display = 'none';
     if (powerButton) powerButton.disabled = true;
+    if (durationSelect) durationSelect.disabled = false;
+    if (overrideAside) overrideAside.textContent = 'idle';
+    renderProgressBar();
     stopTimerUpdate();
     return;
   }
@@ -479,22 +554,33 @@ export function updateTemporaryUI() {
     overrideBanner.style.display = 'flex';
 
     const stateText = temporaryOverride.state === 'grayscale'
-      ? 'Grayscale Override Active'
-      : 'Color Override Active';
+      ? 'Grayscale override active'
+      : 'Color override active';
     overrideStatusText.textContent = stateText;
 
-    // Update timer
+    // Update timer + progress bar
     updateTimerDisplay();
     startTimerUpdate();
 
-    // Mark power button as active
-    if (powerButton) powerButton.classList.add('active');
+    // Mark power button as active; the duration can't be changed mid-run.
+    if (powerButton) {
+      powerButton.classList.add('active');
+      powerButton.setAttribute('aria-label', 'Cancel override');
+    }
+    if (durationSelect) durationSelect.disabled = true;
+    if (overrideAside) overrideAside.textContent = 'running';
   } else {
     // No active override - HIDE banner
     overrideBanner.style.display = 'none';
 
     // Reset power button state
-    if (powerButton) powerButton.classList.remove('active');
+    if (powerButton) {
+      powerButton.classList.remove('active');
+      powerButton.setAttribute('aria-label', 'Start override');
+    }
+    if (durationSelect) durationSelect.disabled = false;
+    if (overrideAside) overrideAside.textContent = 'idle';
+    renderProgressBar();
 
     // Nothing to count down - don't run the interval while idle.
     stopTimerUpdate();
@@ -521,6 +607,7 @@ export function updateTimerDisplay() {
     : `${minutes}:${String(seconds).padStart(2, '0')}`;
 
   timerDisplay.textContent = timeString;
+  renderProgressBar();
   return true;
 }
 
@@ -556,5 +643,5 @@ export function stopTimerUpdate() {
 export function showSuccessMessage(state, durationMs) {
   const durationText = formatDuration(durationMs);
   const stateText = state === 'grayscale' ? 'Grayscale' : 'Color';
-  showMessage(`${stateText} override active for ${durationText}`, 'success');
+  showMessage(`${stateText} override active for ${durationText}.`, 'success');
 }

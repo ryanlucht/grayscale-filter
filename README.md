@@ -112,8 +112,10 @@ Invalid entries:
 ├── background.js          # Service worker
 ├── popup/
 │   ├── popup.html        # UI structure
-│   ├── popup.css         # Styling
-│   └── popup.js          # UI logic
+│   ├── popup.css         # Styling (Normal Computer Co. design system)
+│   ├── popup.js          # UI logic
+│   └── fonts/            # Locally bundled webfonts (Petrona, Martian Mono,
+│                          # DotGothic16) + OFL.txt - never fetched remotely
 ├── utils/
 │   ├── domain.js         # Shared domain utilities
 │   └── filter.js         # Shared filter logic

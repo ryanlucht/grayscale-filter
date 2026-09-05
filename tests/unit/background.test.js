@@ -176,6 +176,85 @@ describe('background.js write serialization (C5 regression)', () => {
   });
 });
 
+describe('background.js durationMs on temporary overrides (popup progress-bar support)', () => {
+  // The popup renders remaining/total as a tick-progress bar, so the stored
+  // override record needs a "total" to divide by. Helper to let a
+  // chrome.storage.sync.get().then()-based async handler run to completion.
+  async function flushMicrotasks() {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  beforeEach(() => {
+    chrome.storage.sync.get.mockResolvedValue({ domains: [], temporaryOverrides: {} });
+    chrome.storage.sync.set.mockResolvedValue(undefined);
+  });
+
+  test('handleTemporaryOverride stores durationMs alongside the override', async () => {
+    await handleTemporaryOverride('example.com', 'grayscale', 60000);
+
+    expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+      temporaryOverrides: {
+        'example.com': expect.objectContaining({ durationMs: 60000 })
+      }
+    });
+  });
+
+  test('getTemporaryOverride response includes durationMs when the stored record has it', async () => {
+    const sendResponse = jest.fn();
+    chrome.storage.sync.get.mockResolvedValue({
+      temporaryOverrides: {
+        'example.com': {
+          state: 'grayscale',
+          expiresAt: Date.now() + 60000,
+          originallyInList: false,
+          durationMs: 60000
+        }
+      }
+    });
+
+    const keepChannelOpen = onMessageListener(
+      { action: 'getTemporaryOverride', domain: 'example.com' },
+      {},
+      sendResponse
+    );
+    expect(keepChannelOpen).toBe(true);
+
+    await flushMicrotasks();
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ active: true, durationMs: 60000 })
+    );
+  });
+
+  test('getTemporaryOverride response has an undefined durationMs for an override written before the field existed (upgrade path)', async () => {
+    const sendResponse = jest.fn();
+    // Simulates a record already sitting in chrome.storage.sync from a
+    // previous version of the extension, before durationMs was added.
+    chrome.storage.sync.get.mockResolvedValue({
+      temporaryOverrides: {
+        'example.com': {
+          state: 'grayscale',
+          expiresAt: Date.now() + 60000,
+          originallyInList: false
+        }
+      }
+    });
+
+    onMessageListener(
+      { action: 'getTemporaryOverride', domain: 'example.com' },
+      {},
+      sendResponse
+    );
+
+    await flushMicrotasks();
+
+    expect(sendResponse).toHaveBeenCalledTimes(1);
+    const response = sendResponse.mock.calls[0][0];
+    expect(response.active).toBe(true);
+    expect(response.durationMs).toBeUndefined();
+  });
+});
+
 describe('background.js message handling cleanup', () => {
   test('the dead "updateAllTabs" action is no longer handled', () => {
     const sendResponse = jest.fn();
