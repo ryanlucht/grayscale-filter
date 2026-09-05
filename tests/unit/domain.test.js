@@ -103,9 +103,20 @@ describe('normalizeDomain', () => {
     expect(normalizeDomain('example.com')).toBe('example.com');
   });
 
-  test('handles input with query string', () => {
-    expect(normalizeDomain('example.com?query=value')).toBe('example.com?query=value');
-    // Note: Current implementation doesn't strip query strings - this documents behavior
+  test('strips query string', () => {
+    expect(normalizeDomain('example.com?query=value')).toBe('example.com');
+  });
+
+  test('strips fragment', () => {
+    expect(normalizeDomain('example.com#section')).toBe('example.com');
+  });
+
+  test('strips port', () => {
+    expect(normalizeDomain('example.com:8080')).toBe('example.com');
+  });
+
+  test('strips port, query string, and fragment together', () => {
+    expect(normalizeDomain('https://www.example.com:8080/path?query=value#section')).toBe('example.com');
   });
 });
 

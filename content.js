@@ -3,13 +3,40 @@
 const STYLE_ID = 'grayscale-filter-extension';
 
 // Extract domain from current URL
+// NOTE: this duplicates utils/domain.js:extractDomain (minus the URL-object
+// input) because content.js is a classic script and cannot use ES imports.
 function getCurrentDomain() {
   try {
-    const url = new URL(window.location.href);
+    const href = window.location.href;
+
+    // Skip non-http(s) URLs, matching utils/domain.js:extractDomain
+    if (!href.startsWith('http://') && !href.startsWith('https://')) {
+      return null;
+    }
+
+    const url = new URL(href);
     return url.hostname.replace(/^www\./, '').toLowerCase();
-  } catch (error) {
+  } catch {
     return null;
   }
+}
+
+// Determine if grayscale should be applied given the permanent domain list
+// and any temporary overrides.
+// NOTE: this duplicates the priority rule in utils/filter.js:shouldApplyGrayscaleFilter.
+// That file is the canonical copy; content.js is a classic script (document_start,
+// no ES imports available) so the logic is inlined here to avoid an async
+// chrome.runtime.getURL() import that would reintroduce a flash of color on load.
+function shouldApplyGrayscaleFilter(domain, permanentDomains, temporaryOverrides) {
+  const override = temporaryOverrides[domain];
+
+  // Check for active temporary override (highest priority)
+  if (override && override.expiresAt > Date.now()) {
+    return override.state === 'grayscale';
+  }
+
+  // Fall back to permanent list
+  return permanentDomains.includes(domain);
 }
 
 // Apply grayscale filter to the page
@@ -51,7 +78,7 @@ function isContextValid() {
   try {
     // This will throw if context is invalidated
     return !!(chrome && chrome.runtime && chrome.runtime.id);
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -65,11 +92,11 @@ function safeStorageGet(keys, callback) {
       try {
         if (chrome.runtime.lastError) return;
         callback(result);
-      } catch (e) {
+      } catch {
         // Context invalidated during callback - ignore
       }
     });
-  } catch (e) {
+  } catch {
     // Context invalidated - ignore
   }
 }
@@ -79,9 +106,11 @@ function checkAndApplyGrayscale() {
   const currentDomain = getCurrentDomain();
   if (!currentDomain) return;
 
-  safeStorageGet(['domains'], (result) => {
+  safeStorageGet(['domains', 'temporaryOverrides'], (result) => {
     const domains = result.domains || [];
-    if (domains.includes(currentDomain)) {
+    const temporaryOverrides = result.temporaryOverrides || {};
+
+    if (shouldApplyGrayscaleFilter(currentDomain, domains, temporaryOverrides)) {
       applyGrayscale();
     } else {
       removeGrayscale();
@@ -110,13 +139,13 @@ function setupMessageListener() {
           checkAndApplyGrayscale();
           sendResponse({ success: true });
         }
-      } catch (e) {
+      } catch {
         // Context invalidated - ignore
       }
 
       return true;
     });
-  } catch (e) {
+  } catch {
     // Context invalidated during setup - ignore
   }
 }

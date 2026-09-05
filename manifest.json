@@ -3,9 +3,9 @@
   "name": "Grayscale Filter",
   "version": "1.2.0",
   "description": "Apply grayscale filter to specified websites",
+  "homepage_url": "https://normalcomputer.co",
   "permissions": [
     "storage",
-    "activeTab",
     "tabs",
     "alarms"
   ],

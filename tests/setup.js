@@ -28,6 +28,12 @@ const chromeMock = {
     onMessage: {
       addListener: jest.fn(),
       removeListener: jest.fn()
+    },
+    onInstalled: {
+      addListener: jest.fn()
+    },
+    onStartup: {
+      addListener: jest.fn()
     }
   },
   tabs: {

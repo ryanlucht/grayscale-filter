@@ -16,7 +16,7 @@ export function extractDomain(url) {
     }
 
     return urlObj.hostname.replace(/^www\./, '').toLowerCase();
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -33,6 +33,15 @@ export function normalizeDomain(input) {
   // Remove trailing slash and path
   input = input.split('/')[0];
 
+  // Remove fragment
+  input = input.split('#')[0];
+
+  // Remove query string
+  input = input.split('?')[0];
+
+  // Remove port
+  input = input.split(':')[0];
+
   // Convert to lowercase
   return input.toLowerCase();
 }
@@ -43,9 +52,32 @@ export function normalizeDomain(input) {
  * @returns {boolean} - True if valid domain format
  */
 export function isValidDomain(domain) {
-  // Basic domain validation regex
-  const regex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?(\.[a-zA-Z]{2,})+$/;
-  return regex.test(domain);
+  if (typeof domain !== 'string' || domain.length === 0 || domain.length > 253) {
+    return false;
+  }
+
+  const labels = domain.split('.');
+
+  // Need at least two labels (e.g. "example" + "com")
+  if (labels.length < 2) {
+    return false;
+  }
+
+  // Each label: alphanumeric, may contain hyphens internally, no leading/trailing hyphen
+  const labelRegex = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/i;
+  for (const label of labels) {
+    if (!labelRegex.test(label)) {
+      return false;
+    }
+  }
+
+  // Final label (TLD) must be alphabetic only and at least 2 characters
+  const tld = labels[labels.length - 1];
+  if (!/^[a-zA-Z]{2,}$/.test(tld)) {
+    return false;
+  }
+
+  return true;
 }
 
 /**

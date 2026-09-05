@@ -129,7 +129,6 @@ Invalid entries:
 This extension requires the following permissions:
 
 - **storage**: Save your domain list and temporary override settings (syncs across devices if signed into Chrome)
-- **activeTab**: Get the URL of the current tab for quick toggle feature
 - **tabs**: Query all tabs to apply/remove filters when domain list changes
 - **alarms**: Manage expiration of temporary overrides (15min/30min/1hr/1day timers)
 
@@ -195,11 +194,11 @@ Potential features for future versions:
 
 ## Contributing
 
-This is a personal project, but suggestions and improvements are welcome!
+This is a Normal Computer Co. product, and suggestions and improvements are welcome!
 
 ## License
 
-This project is provided as-is for personal use.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Version History
 

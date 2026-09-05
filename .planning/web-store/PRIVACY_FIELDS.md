@@ -9,11 +9,6 @@ This document contains all privacy-related information needed for Chrome Web Sto
 - **Data stored**: Domain names user explicitly adds, override expiration timestamps
 - **No personal data collected**
 
-### activeTab
-- **Justification**: "Detect current site URL for quick toggle feature. Allows user to add/remove current site from grayscale list with one click."
-- **Access**: Read-only URL of active tab when user clicks extension icon
-- **No browsing history tracked**
-
 ### tabs
 - **Justification**: "Query all open tabs to apply/remove grayscale filter when user modifies their domain list. Ensures changes take effect immediately across all tabs."
 - **Access**: Tab URLs to match against user's domain list

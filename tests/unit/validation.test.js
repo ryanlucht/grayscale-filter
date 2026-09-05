@@ -27,6 +27,21 @@ describe('isValidDomain', () => {
     test('accepts single character subdomain', () => {
       expect(isValidDomain('a.example.com')).toBe(true);
     });
+
+    test('accepts domain with digit-leading, non-first label (s3.amazonaws.com)', () => {
+      expect(isValidDomain('s3.amazonaws.com')).toBe(true);
+    });
+
+    test('accepts domain with alphanumeric non-first label (web2.example.com)', () => {
+      expect(isValidDomain('web2.example.com')).toBe(true);
+    });
+
+    test('accepts domain at max length (253 chars)', () => {
+      const label = 'a'.repeat(61);
+      const domain = `${label}.${label}.${label}.com`; // 61+1+61+1+61+1+3 = 189
+      expect(domain.length).toBeLessThanOrEqual(253);
+      expect(isValidDomain(domain)).toBe(true);
+    });
   });
 
   describe('invalid domains', () => {
@@ -58,6 +73,27 @@ describe('isValidDomain', () => {
     test('rejects domain with special characters', () => {
       expect(isValidDomain('example@.com')).toBe(false);
       expect(isValidDomain('example!.com')).toBe(false);
+    });
+
+    test('rejects domain with a label exceeding 63 characters', () => {
+      const longLabel = 'a'.repeat(64);
+      expect(isValidDomain(`${longLabel}.com`)).toBe(false);
+    });
+
+    test('rejects domain exceeding 253 total characters', () => {
+      const label = 'a'.repeat(61);
+      const domain = `${label}.${label}.${label}.${label}.${label}.com`; // > 253 chars
+      expect(domain.length).toBeGreaterThan(253);
+      expect(isValidDomain(domain)).toBe(false);
+    });
+
+    test('rejects non-string input', () => {
+      expect(isValidDomain(null)).toBe(false);
+      expect(isValidDomain(undefined)).toBe(false);
+    });
+
+    test('rejects TLD label with digits', () => {
+      expect(isValidDomain('example.c0m')).toBe(false);
     });
   });
 });

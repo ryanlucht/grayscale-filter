@@ -1,9 +1,31 @@
 // background.js - Service worker for coordinating grayscale filter across tabs with temporary override support
 import { extractDomain } from './utils/domain.js';
 import { shouldApplyGrayscaleFilter } from './utils/filter.js';
+import { safeSendMessage } from './utils/messaging.js';
+
+// ============================================
+// WRITE SERIALIZATION
+// ============================================
+// Multiple message/alarm handlers can race to read-modify-write
+// `temporaryOverrides` concurrently (lost-update problem). Chain every
+// mutation onto a single promise so they run one at a time in order.
+let writeQueue = Promise.resolve();
+
+function enqueueWrite(taskFn) {
+  const run = () => taskFn();
+  const resultPromise = writeQueue.then(run, run);
+  // Keep the chain alive even if a task throws/rejects.
+  writeQueue = resultPromise.catch(() => {});
+  return resultPromise;
+}
 
 // Check if domain matches and apply/remove filter (with temporary override support)
-async function checkAndApplyFilterWithOverrides(tabId, url) {
+// Read-only: an expired override is treated as absent by shouldApplyGrayscaleFilter
+// but is NOT deleted here. Actual expiry cleanup is owned exclusively by the
+// cleanupExpiredOverrides alarm, so this function never writes to storage -
+// otherwise the storage.onChanged fan-out (below) would trigger a write per
+// affected tab every time a tab is checked, risking the sync write quota.
+export async function checkAndApplyFilterWithOverrides(tabId, url) {
   const domain = extractDomain(url);
   if (!domain) return;
 
@@ -17,121 +39,94 @@ async function checkAndApplyFilterWithOverrides(tabId, url) {
     const domains = result.domains || [];
     const temporaryOverrides = result.temporaryOverrides || {};
 
-    // Clean expired override for this domain inline
-    if (temporaryOverrides[domain] && temporaryOverrides[domain].expiresAt <= Date.now()) {
-      delete temporaryOverrides[domain];
-      await chrome.storage.sync.set({ temporaryOverrides });
-    }
-
-    // Determine filter state using priority algorithm
+    // Determine filter state using priority algorithm (expired overrides
+    // are treated as absent internally - see utils/filter.js)
     const shouldApplyGrayscale = shouldApplyGrayscaleFilter(domain, domains, temporaryOverrides);
 
-    // Send message to content script
-    chrome.tabs.sendMessage(
-      tabId,
-      {
-        action: shouldApplyGrayscale ? 'apply' : 'remove',
-        domain: domain
-      },
-      (response) => {
-        // Ignore errors if content script isn't ready yet
-        if (chrome.runtime.lastError) {
-          // Content script may not be injected yet, that's okay
-        }
-      }
-    );
+    safeSendMessage(tabId, {
+      action: shouldApplyGrayscale ? 'apply' : 'remove',
+      domain
+    });
   } catch (error) {
     console.error('Grayscale Filter: Error in checkAndApplyFilterWithOverrides:', error);
   }
 }
 
-// Periodic cleanup of expired overrides
-async function cleanupExpiredOverrides() {
-  try {
-    const result = await chrome.storage.sync.get(['temporaryOverrides']);
-    const temporaryOverrides = result.temporaryOverrides || {};
+// Periodic cleanup of expired overrides. This is the single owner of
+// override-expiry deletion (see checkAndApplyFilterWithOverrides above).
+export async function cleanupExpiredOverrides() {
+  return enqueueWrite(async () => {
+    try {
+      const result = await chrome.storage.sync.get(['temporaryOverrides']);
+      const temporaryOverrides = result.temporaryOverrides || {};
 
-    let hasChanges = false;
-    const now = Date.now();
-    const affectedDomains = [];
+      let hasChanges = false;
+      const now = Date.now();
 
-    // Remove expired overrides
-    for (const domain in temporaryOverrides) {
-      if (temporaryOverrides[domain].expiresAt <= now) {
-        affectedDomains.push(domain);
-        delete temporaryOverrides[domain];
-        hasChanges = true;
-      }
-    }
-
-    // Save and update affected tabs
-    if (hasChanges) {
-      await chrome.storage.sync.set({ temporaryOverrides });
-
-      // Update all tabs for affected domains
-      const tabs = await chrome.tabs.query({});
-      tabs.forEach((tab) => {
-        if (tab.url) {
-          const tabDomain = extractDomain(tab.url);
-          if (affectedDomains.includes(tabDomain)) {
-            checkAndApplyFilterWithOverrides(tab.id, tab.url);
-          }
+      // Remove expired overrides
+      for (const domain in temporaryOverrides) {
+        if (temporaryOverrides[domain].expiresAt <= now) {
+          delete temporaryOverrides[domain];
+          hasChanges = true;
         }
-      });
+      }
+
+      // Saving triggers storage.onChanged, which fans the update out to
+      // all tabs - no need to do that separately here.
+      if (hasChanges) {
+        await chrome.storage.sync.set({ temporaryOverrides });
+      }
+    } catch (error) {
+      console.error('Grayscale Filter: Error cleaning expired overrides:', error);
     }
-  } catch (error) {
-    console.error('Grayscale Filter: Error cleaning expired overrides:', error);
-  }
+  });
 }
 
 // Set temporary override for a domain
-async function handleTemporaryOverride(domain, state, durationMs) {
-  const result = await chrome.storage.sync.get(['domains', 'temporaryOverrides']);
-  const domains = result.domains || [];
-  const temporaryOverrides = result.temporaryOverrides || {};
+export async function handleTemporaryOverride(domain, state, durationMs) {
+  return enqueueWrite(async () => {
+    const result = await chrome.storage.sync.get(['domains', 'temporaryOverrides']);
+    const domains = result.domains || [];
+    const temporaryOverrides = result.temporaryOverrides || {};
 
-  temporaryOverrides[domain] = {
-    state: state,
-    expiresAt: Date.now() + durationMs,
-    originallyInList: domains.includes(domain)
-  };
+    temporaryOverrides[domain] = {
+      state: state,
+      expiresAt: Date.now() + durationMs,
+      originallyInList: domains.includes(domain)
+    };
 
-  await chrome.storage.sync.set({ temporaryOverrides });
-
-  // Update all tabs with this domain
-  const tabs = await chrome.tabs.query({});
-  tabs.forEach((tab) => {
-    if (tab.url) {
-      const tabDomain = extractDomain(tab.url);
-      if (tabDomain === domain) {
-        checkAndApplyFilterWithOverrides(tab.id, tab.url);
-      }
-    }
+    // storage.onChanged fans this out to all tabs - no manual tab loop needed.
+    await chrome.storage.sync.set({ temporaryOverrides });
   });
 }
 
 // Clear temporary override for a domain
-async function clearTemporaryOverride(domain) {
-  const result = await chrome.storage.sync.get(['temporaryOverrides']);
-  const temporaryOverrides = result.temporaryOverrides || {};
+export async function clearTemporaryOverride(domain) {
+  return enqueueWrite(async () => {
+    const result = await chrome.storage.sync.get(['temporaryOverrides']);
+    const temporaryOverrides = result.temporaryOverrides || {};
 
-  delete temporaryOverrides[domain];
-  await chrome.storage.sync.set({ temporaryOverrides });
+    delete temporaryOverrides[domain];
 
-  // Update all tabs with this domain
-  const tabs = await chrome.tabs.query({});
-  tabs.forEach((tab) => {
-    if (tab.url) {
-      const tabDomain = extractDomain(tab.url);
-      if (tabDomain === domain) {
-        checkAndApplyFilterWithOverrides(tab.id, tab.url);
-      }
-    }
+    // storage.onChanged fans this out to all tabs - no manual tab loop needed.
+    await chrome.storage.sync.set({ temporaryOverrides });
   });
 }
 
-// Setup alarm for periodic cleanup (every 1 minute)
-chrome.alarms.create('cleanupExpiredOverrides', { periodInMinutes: 1 });
+// Setup alarm for periodic cleanup (every 1 minute).
+// IMPORTANT: this must NOT run at module top level. chrome.alarms.create()
+// with an existing alarm name REPLACES it and resets its countdown, so
+// calling this on every service-worker wake (which happens frequently under
+// normal MV3 worker churn) could keep resetting the timer and prevent
+// cleanup from ever firing. onInstalled/onStartup only fire once per
+// install/browser-launch, so the alarm's periodic schedule is left alone
+// in between.
+function setupCleanupAlarm() {
+  chrome.alarms.create('cleanupExpiredOverrides', { periodInMinutes: 1 });
+}
+
+chrome.runtime.onInstalled.addListener(setupCleanupAlarm);
+chrome.runtime.onStartup.addListener(setupCleanupAlarm);
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'cleanupExpiredOverrides') {
@@ -139,10 +134,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// Listen for tab updates (navigation, page loads)
+// Listen for tab updates (navigation, page loads).
+// Only 'loading' is needed to catch navigations; also handling 'complete'
+// doubled the number of storage reads/messages per navigation for no
+// behavioral benefit.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  // Only act when the page is loading or complete
-  if (changeInfo.status === 'loading' || changeInfo.status === 'complete') {
+  if (changeInfo.status === 'loading') {
     if (tab.url) {
       checkAndApplyFilterWithOverrides(tabId, tab.url);
     }
@@ -161,10 +158,13 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   }
 });
 
-// Listen for storage changes (when user adds/removes domains or overrides)
+// Listen for storage changes (when user adds/removes domains or overrides).
+// This is the single fan-out path that updates all open tabs; handlers that
+// mutate storage (handleTemporaryOverride, clearTemporaryOverride,
+// cleanupExpiredOverrides) rely on this rather than looping over tabs
+// themselves.
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' && (changes.domains || changes.temporaryOverrides)) {
-    // Domain list or overrides changed, update all tabs
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach((tab) => {
         if (tab.url) {
@@ -219,20 +219,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.action === 'updateAllTabs') {
-    // Force update all tabs when requested by popup
-    chrome.tabs.query({}, (tabs) => {
-      tabs.forEach((tab) => {
-        if (tab.url) {
-          checkAndApplyFilterWithOverrides(tab.id, tab.url);
-        }
-      });
-    });
-    sendResponse({ success: true });
-    return true;
-  }
-
-  return true;
+  // Unhandled message action - don't hold the message port open.
+  return false;
 });
 
 console.log('Grayscale Filter: Background service worker initialized with temporary override support');

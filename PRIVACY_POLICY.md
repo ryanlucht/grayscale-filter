@@ -1,6 +1,6 @@
 # Privacy Policy for Grayscale Filter
 
-**Last Updated:** January 2025
+**Last Updated:** September 2026
 
 ## Overview
 
@@ -57,9 +57,7 @@ The extension requests the following permissions:
 | Permission | Purpose |
 |------------|---------|
 | `storage` | Save your domain list and settings |
-| `activeTab` | Read the current tab's URL to enable quick toggle |
 | `tabs` | Apply grayscale across multiple tabs of the same domain |
-| `scripting` | Inject the CSS filter into web pages |
 | `alarms` | Manage expiration of temporary overrides |
 | `<all_urls>` | Apply grayscale filter to any website you choose |
 
@@ -88,7 +86,7 @@ This extension's source code is available for review. You can verify exactly wha
 
 ## Contact
 
-If you have questions about this privacy policy or the extension's data practices, please open an issue on the project's GitHub repository or contact the developer.
+If you have questions about this privacy policy or the extension's data practices, please contact Normal Computer Co., the publisher of this extension, at contact@normalcomputer.co.
 
 ---
 

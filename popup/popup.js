@@ -1,5 +1,6 @@
 // popup.js - UI logic and Chrome API interactions
 import { extractDomain, normalizeDomain, isValidDomain, formatDuration } from '../utils/domain.js';
+import { safeSendMessage } from '../utils/messaging.js';
 
 // ============================================
 // DOM ELEMENT REFERENCES
@@ -29,6 +30,33 @@ let domains = [];
 let currentTabId = null;
 let temporaryOverride = null;
 let timerInterval = null;
+let messageTimeout = null;
+
+// ============================================
+// TEST HOOKS
+// ============================================
+// Not used by the popup itself (popup.html only invokes the
+// DOMContentLoaded handler below) - these exist so tests/unit/popup.test.js
+// can inject DOM refs / state and inspect internal state without spinning
+// up a full DOM. Harmless in production: nothing calls them there.
+export const __testHooks = {
+  setDomRefs(refs) {
+    ({
+      currentDomainEl, toggleButton, toggleText, domainInput, addButton,
+      domainList, emptyState, errorMessage, overrideBanner, overrideStatusText,
+      powerButton, durationSelect, cancelOverride, timerDisplay
+    } = refs);
+  },
+  setState(state) {
+    if ('currentDomain' in state) currentDomain = state.currentDomain;
+    if ('domains' in state) domains = state.domains;
+    if ('currentTabId' in state) currentTabId = state.currentTabId;
+    if ('temporaryOverride' in state) temporaryOverride = state.temporaryOverride;
+  },
+  getState() {
+    return { currentDomain, domains, currentTabId, temporaryOverride, timerInterval, messageTimeout };
+  }
+};
 
 // ============================================
 // INITIALIZATION
@@ -67,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Clear error message when user types
   domainInput.addEventListener('input', () => {
-    errorMessage.textContent = '';
+    clearMessage();
   });
 
   // Initialize
@@ -75,14 +103,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadDomains();
   await loadTemporaryOverride();
   updateUI();
-  startTimerUpdate();
 
   // Clean up timer interval when popup closes
   window.addEventListener('unload', () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
+    stopTimerUpdate();
   });
 });
 
@@ -242,7 +266,7 @@ async function handleManualAdd() {
 
   await addDomain(domain);
   domainInput.value = '';
-  errorMessage.textContent = '';
+  clearMessage();
 }
 
 // Handle remove button click
@@ -251,17 +275,21 @@ async function handleRemove(domain) {
 }
 
 // Add domain to list
-async function addDomain(domain) {
+export async function addDomain(domain) {
   try {
-    domains.push(domain);
-    await chrome.storage.sync.set({ domains });
+    // Write to storage BEFORE mutating local state so a failed write
+    // doesn't leave a phantom entry in `domains` that disagrees with
+    // what's actually persisted.
+    const updatedDomains = [...domains, domain];
+    await chrome.storage.sync.set({ domains: updatedDomains });
+    domains = updatedDomains;
 
     // Send message to apply grayscale to all matching tabs
     await sendMessageToAllTabs('apply', domain);
 
     // If this is the current tab, send message directly
     if (domain === currentDomain && currentTabId) {
-      chrome.tabs.sendMessage(currentTabId, { action: 'apply', domain });
+      safeSendMessage(currentTabId, { action: 'apply', domain });
     }
 
     updateUI();
@@ -272,17 +300,19 @@ async function addDomain(domain) {
 }
 
 // Remove domain from list
-async function removeDomain(domain) {
+export async function removeDomain(domain) {
   try {
-    domains = domains.filter((d) => d !== domain);
-    await chrome.storage.sync.set({ domains });
+    // Write to storage BEFORE mutating local state - see addDomain().
+    const updatedDomains = domains.filter((d) => d !== domain);
+    await chrome.storage.sync.set({ domains: updatedDomains });
+    domains = updatedDomains;
 
     // Send message to remove grayscale from all matching tabs
     await sendMessageToAllTabs('remove', domain);
 
     // If this is the current tab, send message directly
     if (domain === currentDomain && currentTabId) {
-      chrome.tabs.sendMessage(currentTabId, { action: 'remove', domain });
+      safeSendMessage(currentTabId, { action: 'remove', domain });
     }
 
     updateUI();
@@ -304,16 +334,7 @@ async function sendMessageToAllTabs(action, domain) {
       if (tab.url) {
         const tabDomain = extractDomain(tab.url);
         if (tabDomain === domain) {
-          chrome.tabs.sendMessage(
-            tab.id,
-            { action, domain },
-            () => {
-              // Ignore errors (tab may not have content script)
-              if (chrome.runtime.lastError) {
-                // Silently ignore
-              }
-            }
-          );
+          safeSendMessage(tab.id, { action, domain });
         }
       }
     });
@@ -322,12 +343,49 @@ async function sendMessageToAllTabs(action, domain) {
   }
 }
 
-// Show error message
-function showError(message) {
-  errorMessage.textContent = message;
-  setTimeout(() => {
-    errorMessage.textContent = '';
+// ============================================
+// #errorMessage MESSAGING (shared by errors and success notices)
+// ============================================
+
+// Clear any pending message and reset #errorMessage to empty.
+export function clearMessage() {
+  if (messageTimeout) {
+    clearTimeout(messageTimeout);
+    messageTimeout = null;
+  }
+  errorMessage.textContent = '';
+  errorMessage.style.color = '';
+  errorMessage.classList.remove('success', 'error');
+}
+
+// Show a message in #errorMessage, auto-clearing after 3s.
+// `#errorMessage` is shared between error and success notices; a single
+// stored timeout handle (cleared before every new message) prevents one
+// message's timer from blanking a different, later message early.
+export function showMessage(text, kind) {
+  if (messageTimeout) {
+    clearTimeout(messageTimeout);
+    messageTimeout = null;
+  }
+
+  errorMessage.textContent = text;
+  errorMessage.classList.remove('success', 'error');
+  errorMessage.classList.add(kind);
+
+  // TODO(re-skin): popup.css has no `.success`/`.error` rule yet (that's
+  // owned by a separate re-skin task). Keep this inline-style fallback for
+  // the success case so the UI doesn't regress in the meantime; remove once
+  // popup.css defines `.success`.
+  errorMessage.style.color = kind === 'success' ? '#10b981' : '';
+
+  messageTimeout = setTimeout(() => {
+    clearMessage();
   }, 3000);
+}
+
+// Show error message
+export function showError(message) {
+  showMessage(message, 'error');
 }
 
 // ============================================
@@ -405,11 +463,12 @@ async function handleCancelOverride() {
 }
 
 // Update temporary toggle UI
-function updateTemporaryUI() {
+export function updateTemporaryUI() {
   if (!currentDomain) {
     // No valid domain - hide banner, disable power button
     overrideBanner.style.display = 'none';
     if (powerButton) powerButton.disabled = true;
+    stopTimerUpdate();
     return;
   }
 
@@ -426,6 +485,7 @@ function updateTemporaryUI() {
 
     // Update timer
     updateTimerDisplay();
+    startTimerUpdate();
 
     // Mark power button as active
     if (powerButton) powerButton.classList.add('active');
@@ -435,19 +495,21 @@ function updateTemporaryUI() {
 
     // Reset power button state
     if (powerButton) powerButton.classList.remove('active');
+
+    // Nothing to count down - don't run the interval while idle.
+    stopTimerUpdate();
   }
 }
 
-// Update timer display
-function updateTimerDisplay() {
-  if (!temporaryOverride || !temporaryOverride.active) return;
+// Update timer display.
+// Returns true if the override is still live (and the display was updated),
+// false if it has expired (caller is responsible for re-syncing state -
+// this function only renders, it never mutates `temporaryOverride`).
+export function updateTimerDisplay() {
+  if (!temporaryOverride || !temporaryOverride.active) return false;
 
   const remainingMs = temporaryOverride.expiresAt - Date.now();
-  if (remainingMs <= 0) {
-    temporaryOverride = null;
-    updateTemporaryUI();
-    return;
-  }
+  if (remainingMs <= 0) return false;
 
   const totalSeconds = Math.floor(remainingMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -459,35 +521,40 @@ function updateTimerDisplay() {
     : `${minutes}:${String(seconds).padStart(2, '0')}`;
 
   timerDisplay.textContent = timeString;
+  return true;
 }
 
-// Start timer update interval
-function startTimerUpdate() {
-  if (timerInterval) clearInterval(timerInterval);
+// Start the 1s timer update interval. Only runs while an override is
+// active; a no-op if already running.
+export function startTimerUpdate() {
+  if (timerInterval) return;
 
   timerInterval = setInterval(() => {
-    if (temporaryOverride && temporaryOverride.active) {
-      updateTimerDisplay();
+    const stillActive = updateTimerDisplay();
 
-      if (temporaryOverride.expiresAt <= Date.now()) {
-        loadTemporaryOverride().then(() => {
-          updateTemporaryUI();
-        });
-      }
+    if (!stillActive) {
+      // Override expired (or was cleared out from under us) - stop
+      // ticking and re-sync from the source of truth rather than
+      // dereferencing the now-stale `temporaryOverride`.
+      stopTimerUpdate();
+      loadTemporaryOverride().then(() => {
+        updateTemporaryUI();
+      });
     }
   }, 1000);
 }
 
+// Stop the timer update interval, if running.
+export function stopTimerUpdate() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
 // Show success message
-function showSuccessMessage(state, durationMs) {
+export function showSuccessMessage(state, durationMs) {
   const durationText = formatDuration(durationMs);
   const stateText = state === 'grayscale' ? 'Grayscale' : 'Color';
-  const message = `${stateText} override active for ${durationText}`;
-
-  errorMessage.style.color = '#10b981';
-  errorMessage.textContent = message;
-  setTimeout(() => {
-    errorMessage.textContent = '';
-    errorMessage.style.color = '';
-  }, 3000);
+  showMessage(`${stateText} override active for ${durationText}`, 'success');
 }
