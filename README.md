@@ -204,6 +204,17 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## Version History
 
+### v1.2.1
+[Chrome Web Store upload package](releases/grayscale-filter-v1.2.1.zip)
+
+- FIXED: Serialized permanent-domain and temporary-override writes to prevent lost updates
+- FIXED: Removed competing popup tab commands and made storage the authoritative fan-out path
+- FIXED: Added application-level error handling for popup requests
+- FIXED: Cancelled pending document-start filter insertion when a remove arrives
+- FIXED: Normalized mixed-case protocol and `www.` domain input correctly
+- INTERNAL: Added deterministic current-site and temporary-override E2E coverage
+- INTERNAL: Updated development dependencies and resolved all reported audit vulnerabilities
+
 ### v1.2.0
 - IMPROVED: Redesigned UI with the Normal Computer Co. Graphite/Bondi aesthetic and locally bundled Petrona, Martian Mono, and DotGothic16 fonts
 - IMPROVED: Visual hierarchy prioritizes current site actions

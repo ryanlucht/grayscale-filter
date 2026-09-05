@@ -4,6 +4,7 @@ Thumbs.db
 
 # Package files
 *.zip
+!releases/grayscale-filter-v*.zip
 
 # IDE
 .idea/

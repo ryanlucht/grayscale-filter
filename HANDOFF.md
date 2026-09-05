@@ -2,7 +2,7 @@
 
 **Updated:** September 5, 2026
 
-**Version:** 1.2.0
+**Version:** 1.2.1
 
 **Status:** Core functionality and automated verification are complete
 
@@ -49,7 +49,7 @@ Filter priority is: active temporary override, permanent domain list, then no fi
 - The extension intentionally uses `<all_urls>` so configured sites can be filtered automatically at page load.
 - Fonts and icons are bundled locally; the extension makes no external application requests.
 - The public privacy policy is `PRIVACY_POLICY.md`.
-- Create a fresh ZIP from the tested commit rather than reusing an older versioned archive.
+- Run `npm run package:extension` to create a fresh, versioned ZIP in `releases/`.
 
 ## Remaining Product Tradeoffs
 
